@@ -1,700 +1,1613 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Analizador Documental Aduanero – SUNAT</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      color: #1a1a2e;
-      min-height: 100vh;
-    }
-    header {
-      background: linear-gradient(135deg, #003087 0%, #0055a5 100%);
-      color: white;
-      padding: 18px 32px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    header img { height: 48px; }
-    header h1 { font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
-    header p { font-size: 0.8rem; opacity: 0.85; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Analizador Documental Aduanero – SUNAT v3.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+:root {
+  --azul: #003087;
+  --azul-medio: #0055a5;
+  --azul-claro: #e8f0fb;
+  --rojo: #c0392b;
+  --naranja: #e67e22;
+  --verde: #1a7a4a;
+  --amarillo: #d4a017;
+  --gris-bg: #f0f2f6;
+  --gris-borde: #d1d5db;
+  --texto: #1a1a2e;
+  --texto-suave: #6b7280;
+  --blanco: #ffffff;
+  --sombra: 0 2px 12px rgba(0,0,0,0.08);
+  --sombra-fuerte: 0 4px 24px rgba(0,0,0,0.13);
+}
 
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .card h2 {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #003087;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--gris-bg);
+  color: var(--texto);
+  min-height: 100vh;
+  font-size: 14px;
+}
 
-    .drop-zone {
-      border: 2px dashed #adb5bd;
-      border-radius: 10px;
-      padding: 36px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: #f8f9fa;
-    }
-    .drop-zone:hover, .drop-zone.dragging {
-      border-color: #003087;
-      background: #e8f0fb;
-    }
-    .drop-zone p { color: #6c757d; margin-top: 8px; font-size: 0.9rem; }
-    .drop-zone .icon { font-size: 2.5rem; }
+/* ── HEADER ── */
+header {
+  background: linear-gradient(135deg, #001f5c 0%, var(--azul) 60%, var(--azul-medio) 100%);
+  color: white;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+header .brand { display: flex; align-items: center; gap: 14px; }
+header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.3px; }
+header p { font-size: 0.75rem; opacity: 0.75; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+.version-badge {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500;
+}
 
-    .file-list { margin-top: 16px; }
-    .file-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 14px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      margin-bottom: 8px;
-      font-size: 0.88rem;
-    }
-    .file-item span { color: #495057; }
-    .file-item button {
-      background: none;
-      border: none;
-      color: #dc3545;
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 0 4px;
-    }
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 0;
+  height: calc(100vh - 60px);
+}
 
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-primary { background: #003087; color: white; }
-    .btn-primary:hover:not(:disabled) { background: #002070; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-success { background: #198754; color: white; }
-    .btn-success:hover { background: #157347; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .btn-secondary:hover { background: #5c636a; }
-    .btn-warning { background: #fd7e14; color: white; }
-    .btn-warning:hover { background: #e8680a; }
+/* ── PANEL IZQUIERDO ── */
+.panel-left {
+  background: white;
+  border-right: 1px solid var(--gris-borde);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.panel-section {
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.panel-section:last-child { border-bottom: none; flex: 1; overflow-y: auto; }
 
-    .progress-wrap { margin-top: 16px; display: none; }
-    .progress-bar-bg {
-      background: #e9ecef;
-      border-radius: 8px;
-      height: 10px;
-      overflow: hidden;
-    }
-    .progress-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #003087, #0077cc);
-      border-radius: 8px;
-      transition: width 0.3s;
-    }
-    .progress-label { font-size: 0.82rem; color: #6c757d; margin-top: 6px; text-align: center; }
+.section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--texto-suave);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-    /* Alertas especiales */
-    .alerts-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 14px;
-      margin-top: 4px;
-    }
-    .alert-box {
-      border-radius: 10px;
-      padding: 16px;
-      border-left: 4px solid;
-    }
-    .alert-box.red { background: #fff5f5; border-color: #dc3545; }
-    .alert-box.orange { background: #fff8f0; border-color: #fd7e14; }
-    .alert-box.yellow { background: #fffdf0; border-color: #ffc107; }
-    .alert-box h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; }
-    .alert-box.red h3 { color: #dc3545; }
-    .alert-box.orange h3 { color: #fd7e14; }
-    .alert-box.yellow h3 { color: #856404; }
-    .alert-box p, .alert-box li { font-size: 0.84rem; color: #444; }
-    .alert-box ul { padding-left: 16px; }
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--gris-borde);
+  border-radius: 10px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+  position: relative;
+}
+.drop-zone:hover, .drop-zone.dragging {
+  border-color: var(--azul);
+  background: var(--azul-claro);
+}
+.drop-zone .dz-icon { font-size: 2rem; display: block; margin-bottom: 8px; }
+.drop-zone strong { font-size: 0.85rem; display: block; color: var(--texto); }
+.drop-zone small { color: var(--texto-suave); font-size: 0.75rem; }
+.drop-zone input[type=file] { display: none; }
 
-    /* Sección de resultados */
-    .result-section { display: none; }
-    .tabs { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-    .tab-btn {
-      padding: 8px 18px;
-      border: 2px solid #dee2e6;
-      border-radius: 8px 8px 0 0;
-      background: #f8f9fa;
-      cursor: pointer;
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: #495057;
-      transition: all 0.2s;
-    }
-    .tab-btn.active {
-      background: #003087;
-      color: white;
-      border-color: #003087;
-    }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+.file-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+.file-counter .count { font-weight: 700; color: var(--azul); font-family: 'IBM Plex Mono', monospace; }
 
-    .result-box {
-      background: #f8f9fa;
-      border-radius: 0 8px 8px 8px;
-      padding: 20px;
-      white-space: pre-wrap;
-      font-size: 0.88rem;
-      line-height: 1.7;
-      max-height: 520px;
-      overflow-y: auto;
-      border: 1px solid #dee2e6;
-    }
+/* Lista de archivos */
+.file-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  font-size: 0.78rem;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.file-item .file-icon { font-size: 1.1rem; flex-shrink: 0; }
+.file-item .file-info { flex: 1; min-width: 0; }
+.file-item .file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--texto); }
+.file-item .file-size { color: var(--texto-suave); font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; }
+.file-item .file-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--azul-claro);
+  color: var(--azul);
+  white-space: nowrap;
+}
+.file-item .file-tag.nuevo { background: #d1fae5; color: #065f46; }
+.remove-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.remove-btn:hover { color: var(--rojo); }
 
-    .email-box {
-      background: white;
-      border: 1px solid #dee2e6;
-      border-radius: 0 8px 8px 8px;
-      overflow: hidden;
-    }
-    .email-header { background: #003087; color: white; padding: 14px 20px; font-size: 0.88rem; }
-    .email-body {
-      padding: 20px;
-      white-space: pre-wrap;
-      font-size: 0.88rem;
-      line-height: 1.8;
-      max-height: 480px;
-      overflow-y: auto;
-    }
+/* Instrucciones */
+.instrucciones-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.82rem;
+  resize: vertical;
+  min-height: 80px;
+  max-height: 160px;
+  color: var(--texto);
+  transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.instrucciones-textarea:focus { outline: none; border-color: var(--azul); }
+.instrucciones-textarea::placeholder { color: #aaa; }
 
-    .copy-btn {
-      float: right;
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.4);
-      color: white;
-      padding: 4px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.8rem;
-    }
-    .copy-btn:hover { background: rgba(255,255,255,0.35); }
+/* Botón principal */
+.btn-analizar {
+  width: 100%;
+  padding: 13px;
+  background: linear-gradient(135deg, #001f5c, var(--azul));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.3px;
+  margin-top: 4px;
+}
+.btn-analizar:hover:not(:disabled) {
+  background: linear-gradient(135deg, #002070, #0066cc);
+  box-shadow: 0 4px 16px rgba(0,48,135,0.35);
+  transform: translateY(-1px);
+}
+.btn-analizar:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-    /* Selector de tipo de correo */
-    .email-selector {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-    .email-type-btn {
-      padding: 8px 16px;
-      border: 2px solid #dee2e6;
-      border-radius: 8px;
-      background: white;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-    .email-type-btn.active { border-color: #003087; background: #e8f0fb; color: #003087; }
+.btn-limpiar {
+  width: 100%;
+  padding: 9px;
+  background: white;
+  color: var(--texto-suave);
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 8px;
+}
+.btn-limpiar:hover { border-color: var(--rojo); color: var(--rojo); }
 
-    /* Metadata de expediente */
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
-    }
-    .meta-item {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 12px 16px;
-    }
-    .meta-item label { font-size: 0.75rem; color: #6c757d; display: block; margin-bottom: 4px; }
-    .meta-item span { font-size: 0.9rem; font-weight: 600; color: #1a1a2e; }
+/* Progress */
+.progress-wrap { margin-top: 14px; display: none; }
+.progress-bar-bg { background: #e9ecef; border-radius: 8px; height: 6px; overflow: hidden; }
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--azul), #0099ff);
+  border-radius: 8px;
+  transition: width 0.4s ease;
+}
+.progress-label {
+  font-size: 0.72rem;
+  color: var(--texto-suave);
+  margin-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+}
 
-    .badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-    }
-    .badge-green { background: #d1fae5; color: #065f46; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
-    .badge-orange { background: #ffedd5; color: #92400e; }
+/* ── PANEL DERECHO ── */
+.panel-right {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--gris-bg);
+}
 
-    .spinner {
-      display: inline-block;
-      width: 18px; height: 18px;
-      border: 3px solid rgba(255,255,255,0.4);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+/* Estado vacío */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #c0c8d8;
+  gap: 12px;
+  padding: 40px;
+}
+.empty-state .es-icon { font-size: 4rem; }
+.empty-state h2 { font-size: 1.1rem; font-weight: 700; color: #b0b8cc; }
+.empty-state p { font-size: 0.85rem; text-align: center; max-width: 320px; line-height: 1.6; }
 
-    .empty-state {
-      text-align: center;
-      padding: 48px;
-      color: #adb5bd;
-    }
-    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+/* ── RESULTADOS ── */
+.resultados-wrap {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
 
-    footer {
-      text-align: center;
-      padding: 20px;
-      color: #6c757d;
-      font-size: 0.8rem;
-    }
-  </style>
+/* Meta header */
+.meta-header {
+  background: white;
+  border-bottom: 1px solid var(--gris-borde);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.meta-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.meta-pill label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--texto-suave); font-weight: 700; }
+.meta-pill span { font-size: 0.88rem; font-weight: 700; color: var(--texto); font-family: 'IBM Plex Mono', monospace; }
+.meta-divider { width: 1px; height: 36px; background: var(--gris-borde); }
+
+.estado-badge {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.estado-conforme { background: #d1fae5; color: #065f46; }
+.estado-observado { background: #fee2e2; color: #991b1b; }
+.estado-verificar { background: #fef3c7; color: #92400e; }
+
+/* Tabs */
+.tabs-bar {
+  background: white;
+  border-bottom: 1px solid var(--gris-borde);
+  padding: 0 24px;
+  display: flex;
+  gap: 0;
+}
+.tab-btn {
+  padding: 12px 18px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--azul); }
+.tab-btn.active { color: var(--azul); border-bottom-color: var(--azul); }
+
+/* Contenido tabs */
+.tab-content { display: none; flex: 1; overflow-y: auto; padding: 24px; }
+.tab-content.active { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── TARJETAS DE RESULTADO ── */
+.result-card {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--gris-borde);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.result-card-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafbfc;
+}
+.result-card-header .rc-icon { font-size: 1.2rem; }
+.result-card-header h3 { font-size: 0.88rem; font-weight: 700; color: var(--texto); flex: 1; }
+.result-card-header .rc-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.result-card-body { padding: 16px 18px; }
+
+/* Items de resultado */
+.result-items { display: flex; flex-direction: column; gap: 10px; }
+.result-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  background: #fafafa;
+  align-items: flex-start;
+  transition: border-color 0.15s;
+}
+.result-item:hover { border-color: var(--gris-borde); }
+.result-item .ri-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.ri-ok .ri-indicator { background: var(--verde); }
+.ri-warn .ri-indicator { background: var(--naranja); }
+.ri-error .ri-indicator { background: var(--rojo); }
+.ri-info .ri-indicator { background: var(--azul-medio); }
+
+.ri-ok { border-left: 3px solid var(--verde); }
+.ri-warn { border-left: 3px solid var(--naranja); }
+.ri-error { border-left: 3px solid var(--rojo); }
+.ri-info { border-left: 3px solid var(--azul-medio); }
+
+.result-item .ri-content { flex: 1; }
+.result-item .ri-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+.ri-ok .ri-label { color: var(--verde); }
+.ri-warn .ri-label { color: var(--naranja); }
+.ri-error .ri-label { color: var(--rojo); }
+.ri-info .ri-label { color: var(--azul-medio); }
+
+.result-item .ri-text { font-size: 0.84rem; color: var(--texto); line-height: 1.5; }
+
+/* Grid de partidas */
+.partidas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+.partida-card {
+  border-radius: 8px;
+  border: 1px solid var(--gris-borde);
+  padding: 12px 14px;
+  background: #fafafa;
+}
+.partida-nandina {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--azul);
+  margin-bottom: 4px;
+}
+.partida-desc { font-size: 0.8rem; color: var(--texto); font-weight: 600; margin-bottom: 4px; }
+.partida-detalle { font-size: 0.75rem; color: var(--texto-suave); line-height: 1.4; }
+.partida-estado {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.pe-ok { background: #d1fae5; color: #065f46; }
+.pe-warn { background: #fef3c7; color: #92400e; }
+.pe-error { background: #fee2e2; color: #991b1b; }
+
+/* Alertas especiales */
+.alertas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.alerta-box {
+  border-radius: 10px;
+  padding: 16px;
+  border-left: 4px solid;
+}
+.alerta-box.rojo { background: #fff5f5; border-color: var(--rojo); }
+.alerta-box.naranja { background: #fff8f0; border-color: var(--naranja); }
+.alerta-box.amarillo { background: #fffdf0; border-color: var(--amarillo); }
+.alerta-box.verde { background: #f0fdf4; border-color: var(--verde); }
+.alerta-box h4 { font-size: 0.82rem; font-weight: 700; margin-bottom: 6px; }
+.alerta-box.rojo h4 { color: var(--rojo); }
+.alerta-box.naranja h4 { color: var(--naranja); }
+.alerta-box.amarillo h4 { color: #92400e; }
+.alerta-box.verde h4 { color: var(--verde); }
+.alerta-box p { font-size: 0.78rem; color: #555; line-height: 1.5; }
+
+/* ── CORREO TAB ── */
+.email-tipo-selector { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.email-tipo-btn {
+  padding: 8px 16px;
+  border: 2px solid var(--gris-borde);
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  color: var(--texto-suave);
+}
+.email-tipo-btn.active { border-color: var(--azul); background: var(--azul-claro); color: var(--azul); }
+.email-tipo-btn:hover:not(.active) { border-color: #aaa; }
+
+.email-box {
+  background: white;
+  border: 1px solid var(--gris-borde);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.email-top {
+  background: linear-gradient(135deg, #001f5c, var(--azul));
+  color: white;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.copy-btn {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: white;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.3); }
+.email-body-text {
+  padding: 20px;
+  white-space: pre-wrap;
+  font-size: 0.82rem;
+  line-height: 1.8;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: 'IBM Plex Sans', sans-serif;
+  color: var(--texto);
+}
+.btn-regen {
+  margin-top: 12px;
+  padding: 9px 20px;
+  background: white;
+  color: var(--azul);
+  border: 2px solid var(--azul);
+  border-radius: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-regen:hover { background: var(--azul); color: white; }
+
+/* ── CHAT ── */
+.chat-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--gris-bg);
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.chat-msg {
+  display: flex;
+  gap: 10px;
+  max-width: 85%;
+  animation: fadeIn 0.2s ease;
+}
+.chat-msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.chat-msg.assistant { align-self: flex-start; }
+
+.chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.chat-msg.user .chat-avatar { background: var(--azul); color: white; }
+.chat-msg.assistant .chat-avatar { background: #1a1a2e; color: white; }
+
+.chat-bubble {
+  padding: 11px 15px;
+  border-radius: 12px;
+  font-size: 0.83rem;
+  line-height: 1.6;
+  max-width: 100%;
+}
+.chat-msg.user .chat-bubble {
+  background: var(--azul);
+  color: white;
+  border-radius: 12px 12px 4px 12px;
+}
+.chat-msg.assistant .chat-bubble {
+  background: white;
+  color: var(--texto);
+  border: 1px solid var(--gris-borde);
+  border-radius: 12px 12px 12px 4px;
+  box-shadow: var(--sombra);
+}
+.chat-bubble ul, .chat-bubble ol { padding-left: 18px; margin-top: 6px; }
+.chat-bubble li { margin-bottom: 4px; }
+.chat-bubble strong { font-weight: 700; }
+
+.chat-typing {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid var(--gris-borde);
+  border-radius: 12px 12px 12px 4px;
+  width: fit-content;
+  box-shadow: var(--sombra);
+}
+.chat-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--azul-medio);
+  animation: bounce 1.2s ease infinite;
+}
+.chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+}
+
+.chat-input-area {
+  background: white;
+  border-top: 1px solid var(--gris-borde);
+  padding: 14px 20px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.chat-add-file-btn {
+  padding: 9px 12px;
+  background: var(--azul-claro);
+  color: var(--azul);
+  border: 1.5px solid #c5d8f5;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.chat-add-file-btn:hover { background: var(--azul); color: white; border-color: var(--azul); }
+.chat-textarea {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1.5px solid var(--gris-borde);
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.84rem;
+  resize: none;
+  min-height: 42px;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  line-height: 1.5;
+  color: var(--texto);
+}
+.chat-textarea:focus { outline: none; border-color: var(--azul); }
+.chat-send-btn {
+  padding: 10px 18px;
+  background: var(--azul);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.chat-send-btn:hover:not(:disabled) { background: #002070; }
+.chat-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.chat-hint {
+  font-size: 0.72rem;
+  color: var(--texto-suave);
+  padding: 0 20px 10px;
+  background: white;
+  font-style: italic;
+}
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2.5px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+/* Responsive básico */
+@media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: calc(100vh - 60px); }
+  .panel-left { height: auto; max-height: 50vh; overflow-y: auto; }
+  .panel-right { height: 50vh; }
+}
+</style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>🔍 Analizador Documental Aduanero</h1>
-    <p>SUNAT – Intendencia de Aduana · Análisis inteligente de expedientes · v2.0</p>
+  <div class="brand">
+    <div>
+      <h1>🔍 Analizador Documental Aduanero</h1>
+      <p>SUNAT – Intendencia de Aduana · Análisis inteligente de expedientes</p>
+    </div>
   </div>
+  <span class="version-badge">v3.0</span>
 </header>
 
-<div class="container">
+<div class="layout">
 
-  <!-- Carga de documentos -->
-  <div class="card">
-    <h2>📁 Carga de Documentos del Expediente</h2>
-    <div class="drop-zone" id="dropZone">
-      <div class="icon">📄</div>
-      <strong>Arrastra los PDFs aquí o haz clic para seleccionar</strong>
-      <p>Máximo 10 archivos · DAM, B/L, Facturas, C.O., SWIFT, DDJJ, etc.</p>
-      <input type="file" id="fileInput" accept=".pdf" multiple style="display:none" />
+  <!-- ── PANEL IZQUIERDO ── -->
+  <div class="panel-left">
+
+    <!-- Carga de archivos -->
+    <div class="panel-section">
+      <div class="section-title">📁 Documentos del Expediente</div>
+      <div class="drop-zone" id="dropZone">
+        <span class="dz-icon">📄</span>
+        <strong>Arrastra PDFs aquí o haz clic</strong>
+        <small>DAM · B/L · Factura · C.O. · Póliza · DDJJ · SWIFT</small>
+        <input type="file" id="fileInput" accept=".pdf" multiple />
+      </div>
+      <div class="file-counter">
+        <span>Archivos cargados</span>
+        <span class="count" id="fileCount">0 / 15</span>
+      </div>
+      <div class="file-list" id="fileList"></div>
     </div>
-    <div class="file-list" id="fileList"></div>
 
-    <div class="actions">
-      <button class="btn btn-primary" id="analyzeBtn" disabled onclick="analyzeDocuments()">
+    <!-- Instrucciones -->
+    <div class="panel-section">
+      <div class="section-title">💬 Instrucciones Especiales (Opcional)</div>
+      <textarea
+        class="instrucciones-textarea"
+        id="instrucciones"
+        placeholder="Ej: Enfócate en las partidas arancelarias · Verifica si el cert. origen cubre todas las series · Detecta posible subvaloración · Analiza concordancia de pesos..."
+      ></textarea>
+    </div>
+
+    <!-- Botón analizar -->
+    <div class="panel-section">
+      <button class="btn-analizar" id="analyzeBtn" disabled onclick="analyzeDocuments()">
         🔍 Analizar Expediente
       </button>
-      <button class="btn btn-secondary" onclick="clearAll()">🗑️ Limpiar Todo</button>
+      <button class="btn-limpiar" onclick="clearAll()">🗑️ Limpiar todo</button>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+        <div class="progress-label" id="progressLabel">Iniciando...</div>
+      </div>
     </div>
 
-    <div class="progress-wrap" id="progressWrap">
-      <div class="progress-bar-bg">
-        <div class="progress-bar" id="progressBar" style="width:0%"></div>
-      </div>
-      <div class="progress-label" id="progressLabel">Procesando documentos...</div>
-    </div>
   </div>
 
-  <!-- Resultados -->
-  <div class="result-section" id="resultSection">
+  <!-- ── PANEL DERECHO ── -->
+  <div class="panel-right">
 
-    <!-- Metadata del expediente -->
-    <div class="card">
-      <h2>📋 Datos del Expediente</h2>
-      <div class="meta-grid" id="metaGrid">
-        <div class="meta-item"><label>Importador</label><span id="mImportador">–</span></div>
-        <div class="meta-item"><label>DAM / Manifiesto</label><span id="mDAM">–</span></div>
-        <div class="meta-item"><label>País de Origen</label><span id="mOrigen">–</span></div>
-        <div class="meta-item"><label>Aduana</label><span id="mAduana">–</span></div>
-        <div class="meta-item"><label>Valor FOB</label><span id="mFOB">–</span></div>
-        <div class="meta-item"><label>Estado</label><span id="mEstado">–</span></div>
+    <!-- Estado vacío -->
+    <div class="empty-state" id="emptyState">
+      <div class="es-icon">📂</div>
+      <h2>Sin expediente cargado</h2>
+      <p>Sube los documentos del expediente en el panel izquierdo, agrega instrucciones si necesitas enfocarte en algo específico, y presiona Analizar.</p>
+    </div>
+
+    <!-- Resultados -->
+    <div class="resultados-wrap" id="resultadosWrap">
+
+      <!-- Meta header -->
+      <div class="meta-header" id="metaHeader">
+        <div class="meta-pill">
+          <label>Importador</label>
+          <span id="mImportador">–</span>
+        </div>
+        <div class="meta-divider"></div>
+        <div class="meta-pill">
+          <label>DAM</label>
+          <span id="mDAM">–</span>
+        </div>
+        <div class="meta-divider"></div>
+        <div class="meta-pill">
+          <label>FOB</label>
+          <span id="mFOB">–</span>
+        </div>
+        <div class="meta-divider"></div>
+        <div class="meta-pill">
+          <label>Origen</label>
+          <span id="mOrigen">–</span>
+        </div>
+        <div class="meta-divider"></div>
+        <div class="meta-pill">
+          <label>Estado</label>
+          <span id="mEstado">–</span>
+        </div>
       </div>
-    </div>
 
-    <!-- Alertas especiales -->
-    <div class="card" id="alertsCard" style="display:none">
-      <h2>⚠️ Alertas Especiales Detectadas</h2>
-      <div class="alerts-grid" id="alertsGrid"></div>
-    </div>
-
-    <!-- Análisis y correos -->
-    <div class="card">
-      <h2>📊 Análisis y Documentos Generados</h2>
-      <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('analisis')">📊 Análisis Técnico</button>
-        <button class="tab-btn" onclick="showTab('correo')">✉️ Correo Oficial</button>
-        <button class="tab-btn" onclick="showTab('observaciones')">📝 Observaciones</button>
+      <!-- Tabs -->
+      <div class="tabs-bar">
+        <button class="tab-btn active" onclick="showTab('analisis', this)">📊 Análisis</button>
+        <button class="tab-btn" onclick="showTab('partidas', this)">🏷️ Partidas</button>
+        <button class="tab-btn" onclick="showTab('alertas', this)">⚠️ Alertas</button>
+        <button class="tab-btn" onclick="showTab('correo', this)">✉️ Correo</button>
+        <button class="tab-btn" onclick="showTab('chat', this)">💬 Chat</button>
       </div>
 
       <!-- Tab: Análisis -->
       <div class="tab-content active" id="tab-analisis">
-        <div class="result-box" id="analisisContent"></div>
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">📋</span>
+            <h3>Documentos Presentados</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="result-items" id="ri-documentos"></div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">🔗</span>
+            <h3>Concordancia de Datos</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="result-items" id="ri-concordancia"></div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">⚖️</span>
+            <h3>Valores y Tributos</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="result-items" id="ri-valores"></div>
+          </div>
+        </div>
+        <div class="result-card" id="card-permisos">
+          <div class="result-card-header">
+            <span class="rc-icon">🏛️</span>
+            <h3>Permisos y Autorizaciones</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="result-items" id="ri-permisos"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Partidas -->
+      <div class="tab-content" id="tab-partidas">
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">🏷️</span>
+            <h3>Análisis de Partidas Arancelarias</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="partidas-grid" id="partidas-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Alertas -->
+      <div class="tab-content" id="tab-alertas">
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">⚠️</span>
+            <h3>Alertas Especiales</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="alertas-grid" id="alertas-grid"></div>
+          </div>
+        </div>
+        <div class="result-card">
+          <div class="result-card-header">
+            <span class="rc-icon">📝</span>
+            <h3>Observaciones y Puntos de Atención</h3>
+          </div>
+          <div class="result-card-body">
+            <div class="result-items" id="ri-observaciones"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Tab: Correo -->
       <div class="tab-content" id="tab-correo">
-        <div class="email-selector">
-          <button class="email-type-btn active" onclick="setEmailType('total', this)">
-            ✅ Desbloqueo Total
-          </button>
-          <button class="email-type-btn" onclick="setEmailType('parcial', this)">
-            ⚠️ Desbloqueo Parcial
-          </button>
-          <button class="email-type-btn" onclick="setEmailType('retencion', this)">
-            🚫 Retención / Comiso
-          </button>
+
+        <!-- Selector tipo -->
+        <div class="email-tipo-selector">
+          <button class="email-tipo-btn active" onclick="setEmailType('desbloqueo_total', this)">✅ Desbloqueo Total</button>
+          <button class="email-tipo-btn" onclick="setEmailType('levante_inmov', this)">🔓 Levante Inmovilización</button>
+          <button class="email-tipo-btn" onclick="setEmailType('desbloqueo_parcial', this)">⚠️ Desbloqueo Parcial / Incautación</button>
         </div>
+
+        <!-- Formulario datos post-inspección -->
+        <div class="result-card" style="margin-bottom:0;">
+          <div class="result-card-header">
+            <span class="rc-icon">📝</span>
+            <h3>Datos Post-Inspección Física</h3>
+            <span class="rc-badge" style="background:#fef3c7;color:#92400e;">Completar tras inspección</span>
+          </div>
+          <div class="result-card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="camposCorreo">
+
+              <div>
+                <label style="font-size:0.72rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">N° Acta de Inspección</label>
+                <input type="text" id="nActaInspeccion" placeholder="118-0301-2026-000180"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--gris-borde);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--texto);"
+                  oninput="generarCorreoAuto()" />
+              </div>
+
+              <div id="campo_acta_inmov" style="display:none;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">N° Acta de Inmovilización</label>
+                <input type="text" id="nActaInmov" placeholder="118-0301-2026-000038"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--gris-borde);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--texto);"
+                  oninput="generarCorreoAuto()" />
+              </div>
+
+              <div id="campo_acta_levante" style="display:none;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">N° Acta de Levantamiento</label>
+                <input type="text" id="nActaLevante" placeholder="118-0301-2026-026"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--gris-borde);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--texto);"
+                  oninput="generarCorreoAuto()" />
+              </div>
+
+              <div id="campo_acta_incautacion" style="display:none;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">N° Acta de Incautación</label>
+                <input type="text" id="nActaIncautacion" placeholder="118-0301-2026-00022"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--gris-borde);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--texto);"
+                  oninput="generarCorreoAuto()" />
+              </div>
+
+              <div id="campo_canal" style="display:none;">
+                <label style="font-size:0.72rem;font-weight:700;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Canal</label>
+                <select id="canalDAM"
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--gris-borde);border-radius:7px;font-family:'IBM Plex Sans',sans-serif;font-size:0.8rem;color:var(--texto);"
+                  onchange="generarCorreoAuto()">
+                  <option value="CANAL VERDE">CANAL VERDE</option>
+                  <option value="CANAL ROJO">CANAL ROJO</option>
+                  <option value="CANAL NARANJA">CANAL NARANJA</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Vista previa del correo -->
         <div class="email-box">
-          <div class="email-header">
-            Correo Oficial – SUNAT · Intendencia de Aduana
+          <div class="email-top">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:0.7rem;opacity:0.7;">ASUNTO:</span>
+              <span id="emailAsunto" style="font-size:0.82rem;">–</span>
+            </div>
             <button class="copy-btn" onclick="copyEmail()">📋 Copiar</button>
           </div>
-          <div class="email-body" id="emailContent">
-            <em style="color:#aaa">Selecciona el tipo de correo y se generará automáticamente...</em>
+          <div class="email-body-text" id="emailContent">
+            <em style="color:#aaa">Completa los datos post-inspección para generar el correo...</em>
           </div>
         </div>
-        <div class="actions" style="margin-top:12px">
-          <button class="btn btn-warning" onclick="generateEmail()">⚡ Regenerar Correo</button>
+
+        <div style="display:flex;gap:10px;margin-top:12px;align-items:center;">
+          <button class="btn-regen" onclick="generarCorreoAuto()">⚡ Regenerar</button>
+          <button class="btn-regen" onclick="copyAsunto()" style="border-color:var(--verde);color:var(--verde);">📋 Copiar Asunto</button>
+        </div>
+
+      </div>
+
+      <!-- Tab: Chat -->
+      <div class="tab-content" id="tab-chat" style="padding:0; overflow:hidden; display:none; flex-direction:column;">
+        <div class="chat-wrap">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg assistant">
+              <div class="chat-avatar">🤖</div>
+              <div class="chat-bubble">
+                <strong>Análisis completado.</strong> Puedes hacerme preguntas específicas sobre el expediente, pedirme que profundice en algún punto, o agregar documentos adicionales usando el botón <strong>＋ PDF</strong>. ¿En qué te ayudo?
+              </div>
+            </div>
+          </div>
+          <p class="chat-hint">💡 Ej: "¿Hay riesgo de subvaloración?" · "Redacta las obs. solo para el B/L" · "¿La partida serie 3 es correcta?"</p>
+          <div class="chat-input-area">
+            <button class="chat-add-file-btn" title="Agregar PDFs adicionales al expediente" onclick="triggerAddFile()">＋ PDF</button>
+            <input type="file" id="addFileInput" accept=".pdf" multiple style="display:none" onchange="addMoreFiles(this)" />
+            <textarea
+              class="chat-textarea"
+              id="chatInput"
+              placeholder="Haz una pregunta o pide análisis específico..."
+              rows="1"
+              onkeydown="handleChatKey(event)"
+              oninput="autoResize(this)"
+            ></textarea>
+            <button class="chat-send-btn" id="sendBtn" onclick="sendChat()">Enviar</button>
+          </div>
         </div>
       </div>
 
-      <!-- Tab: Observaciones -->
-      <div class="tab-content" id="tab-observaciones">
-        <div class="result-box" id="observacionesContent"></div>
-      </div>
-    </div>
+    </div><!-- /resultados-wrap -->
 
-  </div>
+  </div><!-- /panel-right -->
 
-  <div class="empty-state" id="emptyState">
-    <div class="icon">📂</div>
-    <p>Sube los documentos del expediente para comenzar el análisis</p>
-  </div>
-
-</div>
-
-<footer>
-  Analizador Documental Aduanero · SUNAT Perú · Uso interno oficial
-</footer>
+</div><!-- /layout -->
 
 <script>
-  // ── Estado global ──────────────────────────────────────────────
-  let files = [];
-  let analysisResult = null;
-  let currentEmailType = 'total';
+// ── ESTADO GLOBAL ────────────────────────────────────────────
+let files = [];
+let analysisResult = null;
+let currentEmailType = 'total';
+let chatHistory = [];
 
-  // ── Drag & drop ────────────────────────────────────────────────
-  const dropZone = document.getElementById('dropZone');
-  const fileInput = document.getElementById('fileInput');
+// ── DRAG & DROP ──────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
 
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragging');
-    addFiles([...e.dataTransfer.files]);
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragging');
+  addFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
+
+function addFiles(newFiles) {
+  const pdfs = newFiles.filter(f => f.type === 'application/pdf');
+  pdfs.forEach(f => {
+    if (files.length < 15 && !files.find(x => x.name === f.name)) {
+      files.push({ file: f, nuevo: false });
+    }
   });
-  fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+  renderFileList();
+}
 
-  function addFiles(newFiles) {
-    const pdfs = newFiles.filter(f => f.type === 'application/pdf');
-    pdfs.forEach(f => {
-      if (files.length < 10 && !files.find(x => x.name === f.name)) files.push(f);
-    });
-    renderFileList();
+function addMoreFiles(input) {
+  const newFiles = [...input.files].filter(f => f.type === 'application/pdf');
+  const added = [];
+  newFiles.forEach(f => {
+    if (files.length < 15 && !files.find(x => x.file.name === f.name)) {
+      files.push({ file: f, nuevo: true });
+      added.push(f.name);
+    }
+  });
+  input.value = '';
+  renderFileList();
+  if (added.length > 0) {
+    addChatMsg('user', `Agregué ${added.length} archivo(s) adicional(es): ${added.join(', ')}. Por favor complementa el análisis con estos documentos.`);
+    sendChatWithContext(`Se han agregado los siguientes archivos adicionales al expediente: ${added.join(', ')}. Complementa el análisis anterior considerando estos nuevos documentos e indica si cambia alguna conclusión o si hay nuevas observaciones.`);
   }
+}
 
-  function renderFileList() {
-    const list = document.getElementById('fileList');
-    list.innerHTML = '';
-    files.forEach((f, i) => {
-      const size = (f.size / 1024).toFixed(0);
-      list.innerHTML += `
-        <div class="file-item">
-          <span>📄 ${f.name} <small style="color:#aaa">(${size} KB)</small></span>
-          <button onclick="removeFile(${i})">✕</button>
-        </div>`;
-    });
-    document.getElementById('analyzeBtn').disabled = files.length === 0;
-  }
+function triggerAddFile() { document.getElementById('addFileInput').click(); }
 
-  function removeFile(i) { files.splice(i, 1); renderFileList(); }
+function detectarTipoDoc(nombre) {
+  const n = nombre.toLowerCase();
+  if (n.includes('dam') || n.includes('dua') || n.includes('declaracion')) return 'DAM';
+  if (n.includes('bl') || n.includes('bill') || n.includes('lading') || n.includes('dcto_trans')) return 'B/L';
+  if (n.includes('fact') || n.includes('invoice') || n.includes('fact_come')) return 'FACTURA';
+  if (n.includes('cert') || n.includes('origen') || n.includes('cert_orig')) return 'C.ORIGEN';
+  if (n.includes('poliza') || n.includes('seguro') || n.includes('insurance')) return 'PÓLIZA';
+  if (n.includes('swift')) return 'SWIFT';
+  if (n.includes('ddjj')) return 'DDJJ';
+  return 'PDF';
+}
 
-  function clearAll() {
-    files = [];
-    analysisResult = null;
-    renderFileList();
-    document.getElementById('resultSection').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'block';
-    document.getElementById('progressWrap').style.display = 'none';
-  }
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  files.forEach((f, i) => {
+    const size = (f.file.size / 1024).toFixed(0);
+    const tipo = detectarTipoDoc(f.file.name);
+    const tagClass = f.nuevo ? 'nuevo' : '';
+    list.innerHTML += `
+      <div class="file-item">
+        <span class="file-icon">📄</span>
+        <div class="file-info">
+          <div class="file-name">${f.file.name}</div>
+          <div class="file-size">${size} KB</div>
+        </div>
+        <span class="file-tag ${tagClass}">${f.nuevo ? '✦ NUEVO' : tipo}</span>
+        <button class="remove-btn" onclick="removeFile(${i})">✕</button>
+      </div>`;
+  });
+  document.getElementById('fileCount').textContent = `${files.length} / 15`;
+  document.getElementById('analyzeBtn').disabled = files.length === 0;
+}
 
-  // ── Leer PDF como base64 ───────────────────────────────────────
-  function fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-  }
+function removeFile(i) { files.splice(i, 1); renderFileList(); }
 
-  // ── Análisis principal ─────────────────────────────────────────
-  async function analyzeDocuments() {
-    if (files.length === 0) return;
+function clearAll() {
+  files = []; analysisResult = null; chatHistory = [];
+  renderFileList();
+  document.getElementById('resultadosWrap').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('instrucciones').value = '';
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="chat-msg assistant">
+      <div class="chat-avatar">🤖</div>
+      <div class="chat-bubble">
+        <strong>Análisis completado.</strong> Puedes hacerme preguntas específicas sobre el expediente, pedirme que profundice en algún punto, o agregar documentos adicionales usando el botón <strong>＋ PDF</strong>. ¿En qué te ayudo?
+      </div>
+    </div>`;
+}
 
-    const btn = document.getElementById('analyzeBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Analizando...';
+// ── BASE64 ───────────────────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
 
-    const progressWrap = document.getElementById('progressWrap');
-    const progressBar = document.getElementById('progressBar');
-    const progressLabel = document.getElementById('progressLabel');
-    progressWrap.style.display = 'block';
+// ── ANÁLISIS PRINCIPAL ───────────────────────────────────────
+async function analyzeDocuments() {
+  if (files.length === 0) return;
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analizando...';
 
-    document.getElementById('resultSection').style.display = 'none';
-    document.getElementById('emptyState').style.display = 'none';
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const progressLabel = document.getElementById('progressLabel');
+  progressWrap.style.display = 'block';
 
-    try {
-      // Convertir PDFs a base64
-      progressLabel.textContent = 'Leyendo archivos...';
-      progressBar.style.width = '15%';
+  try {
+    progressLabel.textContent = 'Leyendo archivos PDF...';
+    progressBar.style.width = '10%';
 
-      const pdfContents = [];
-      for (let i = 0; i < files.length; i++) {
-        const b64 = await fileToBase64(files[i]);
-        pdfContents.push({ name: files[i].name, data: b64 });
-        progressBar.style.width = `${15 + (i + 1) / files.length * 25}%`;
-      }
+    const pdfContents = [];
+    for (let i = 0; i < files.length; i++) {
+      const b64 = await fileToBase64(files[i].file);
+      pdfContents.push({ name: files[i].file.name, data: b64 });
+      progressBar.style.width = `${10 + (i + 1) / files.length * 30}%`;
+    }
 
-      progressLabel.textContent = 'Enviando a análisis con IA...';
-      progressBar.style.width = '45%';
+    const instrucciones = document.getElementById('instrucciones').value.trim();
+    progressLabel.textContent = 'Enviando a Claude para análisis...';
+    progressBar.style.width = '45%';
 
-      // Construir mensajes para Claude
-      const userContent = [
-        ...pdfContents.map(pdf => ({
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: pdf.data },
-          title: pdf.name,
-        })),
-        {
-          type: 'text',
-          text: `Eres un experto en fiscalización aduanera de SUNAT Perú. Analiza estos documentos del expediente y responde en el siguiente formato JSON estricto (sin markdown, solo JSON puro):
+    const userContent = [
+      ...pdfContents.map(pdf => ({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: pdf.data },
+        title: pdf.name,
+      })),
+      {
+        type: 'text',
+        text: `Eres un experto en fiscalización aduanera de SUNAT Perú con amplio conocimiento en el Arancel de Aduanas, Ley General de Aduanas (D.L. 1053), TLC China-Perú y procedimientos INTA.
+
+${instrucciones ? `INSTRUCCIONES ESPECIALES DEL FISCALIZADOR:\n${instrucciones}\n\n` : ''}
+
+Analiza TODOS los documentos del expediente y responde ÚNICAMENTE en JSON puro válido (sin markdown, sin texto adicional) con esta estructura exacta:
 
 {
-  "importador": "nombre del importador/consignatario",
-  "dam": "número de DAM o manifiesto",
-  "origen": "país o países de origen",
+  "importador": "nombre corto del importador",
+  "dam": "número de DAM o declaración",
+  "origen": "país(es) de origen",
   "aduana": "aduana de ingreso",
-  "fob": "valor FOB total en USD",
-  "estado": "CONFORME / OBSERVADO / REQUIERE VERIFICACIÓN",
-  "analisis": "Análisis técnico detallado del expediente: descripción de mercancía, régimen aduanero, documentos presentados, concordancia entre documentos, posibles irregularidades, subpartida arancelaria detectada, valor en aduana, etc. Mínimo 400 palabras.",
-  "observaciones": "Lista numerada de observaciones, inconsistencias o puntos de atención detectados entre los documentos. Incluir discrepancias de valores, pesos, descripciones, etc.",
-  "alerta_vin": { "detectado": true/false, "detalle": "descripción si hay VIN/chasis/motor en los documentos" },
-  "alerta_marcas": { "detectado": true/false, "detalle": "marcas comerciales, logos, o mercancía de marca detectada" },
-  "alerta_oto": { "detectado": true/false, "detalle": "si hay indicios de origen dudoso o triangulación" },
-  "alerta_valor": { "detectado": true/false, "detalle": "si el valor declarado parece subvalorado o inconsistente" }
+  "fob": "USD X,XXX.XX",
+  "estado": "CONFORME" | "OBSERVADO" | "REQUIERE VERIFICACIÓN",
+
+  "documentos": [
+    { "doc": "nombre del documento", "numero": "número o referencia", "estado": "ok" | "warn" | "error" | "info", "detalle": "observación concisa" }
+  ],
+
+  "concordancia": [
+    { "campo": "qué se verificó", "estado": "ok" | "warn" | "error", "detalle": "resultado del cruce entre documentos" }
+  ],
+
+  "valores": [
+    { "concepto": "nombre", "estado": "ok" | "warn" | "error" | "info", "detalle": "análisis del valor/tributo" }
+  ],
+
+  "permisos": [
+    { "mercancia": "tipo de mercancía", "requiere": true | false, "entidad": "entidad si aplica", "estado": "ok" | "warn" | "pendiente", "detalle": "situación actual" }
+  ],
+
+  "partidas": [
+    { "serie": 1, "nandina": "xx.xx.xx.xx.xx", "descripcion": "nombre corto", "detalle": "descripción de la mercancía declarada", "estado": "ok" | "warn" | "error", "comentario": "análisis de si la partida es correcta o debe revisarse" }
+  ],
+
+  "alertas": [
+    { "tipo": "VIN" | "MARCAS" | "OTO" | "VALOR" | "SUBVALORACION" | "DESCRIPCION" | "OTRO", "nivel": "rojo" | "naranja" | "amarillo" | "verde", "titulo": "título corto", "detalle": "descripción del hallazgo" }
+  ],
+
+  "observaciones": [
+    { "prioridad": "alta" | "media" | "baja", "titulo": "título corto", "detalle": "observación detallada con fundamento técnico" }
+  ],
+
+  "agencia_nombre": "nombre completo de la agencia de aduanas (declarante)",
+  "agencia_codigo": "código de la agencia (ej: 5901)",
+  "agencia_ruc": "RUC de la agencia",
+  "deposito_nombre": "nombre completo del depósito o terminal de almacenamiento",
+  "deposito_codigo": "código del depósito (ej: 3029)",
+  "deposito_ruc": "RUC del depósito",
+  "ace": "número de Acción de Control Extraordinaria si aparece en los documentos, sino dejar vacío",
+
+  "resumen_chat": "Resumen ejecutivo de 3-4 líneas del expediente para contexto del chat posterior"
 }`
-        }
-      ];
-
-      progressBar.style.width = '60%';
-      progressLabel.textContent = 'Procesando con IA (puede tomar 30-60 segundos)...';
-
-      const response = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-opus-4-5',
-          max_tokens: 4096,
-          system: 'Eres un experto en fiscalización aduanera de SUNAT Perú. Respondes ÚNICAMENTE en JSON válido, sin texto adicional, sin markdown.',
-          messages: [{ role: 'user', content: userContent }]
-        })
-      });
-
-      progressBar.style.width = '85%';
-      progressLabel.textContent = 'Procesando respuesta...';
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || `Error ${response.status}`);
       }
+    ];
 
-      const data = await response.json();
-      const rawText = data.content?.[0]?.text || '';
+    progressBar.style.width = '55%';
+    progressLabel.textContent = 'Claude procesando documentos (30-60 seg)...';
 
-      // Parsear JSON de la respuesta
-      let parsed;
-      try {
-        parsed = JSON.parse(rawText);
-      } catch {
-        // Intentar extraer JSON si viene con texto extra
-        const match = rawText.match(/\{[\s\S]*\}/);
-        if (match) parsed = JSON.parse(match[0]);
-        else throw new Error('La respuesta no contiene JSON válido');
-      }
-
-      analysisResult = parsed;
-      progressBar.style.width = '100%';
-      progressLabel.textContent = '¡Análisis completado!';
-
-      renderResults(parsed);
-
-      setTimeout(() => { progressWrap.style.display = 'none'; }, 1500);
-
-    } catch (err) {
-      progressBar.style.width = '100%';
-      progressBar.style.background = '#dc3545';
-      progressLabel.textContent = `Error: ${err.message}`;
-      console.error(err);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '🔍 Analizar Expediente';
-    }
-  }
-
-  // ── Renderizar resultados ──────────────────────────────────────
-  function renderResults(data) {
-    // Metadata
-    document.getElementById('mImportador').textContent = data.importador || '–';
-    document.getElementById('mDAM').textContent = data.dam || '–';
-    document.getElementById('mOrigen').textContent = data.origen || '–';
-    document.getElementById('mAduana').textContent = data.aduana || '–';
-    document.getElementById('mFOB').textContent = data.fob || '–';
-
-    const estadoBadge = data.estado === 'CONFORME'
-      ? `<span class="badge badge-green">✓ ${data.estado}</span>`
-      : data.estado === 'OBSERVADO'
-      ? `<span class="badge badge-red">⚠ ${data.estado}</span>`
-      : `<span class="badge badge-orange">🔍 ${data.estado}</span>`;
-    document.getElementById('mEstado').innerHTML = estadoBadge;
-
-    // Análisis y observaciones
-    document.getElementById('analisisContent').textContent = data.analisis || '(Sin análisis)';
-    document.getElementById('observacionesContent').textContent = data.observaciones || '(Sin observaciones)';
-
-    // Alertas especiales
-    const alertas = [];
-    if (data.alerta_vin?.detectado) alertas.push({ tipo: 'red', titulo: '🚗 Alerta VIN / Chasis / Motor', detalle: data.alerta_vin.detalle });
-    if (data.alerta_marcas?.detectado) alertas.push({ tipo: 'orange', titulo: '™️ Alerta Marcas Comerciales', detalle: data.alerta_marcas.detalle });
-    if (data.alerta_oto?.detectado) alertas.push({ tipo: 'yellow', titulo: '🌐 Alerta OTO / Triangulación', detalle: data.alerta_oto.detalle });
-    if (data.alerta_valor?.detectado) alertas.push({ tipo: 'orange', titulo: '💰 Alerta Subvaloración', detalle: data.alerta_valor.detalle });
-
-    const alertsCard = document.getElementById('alertsCard');
-    const alertsGrid = document.getElementById('alertsGrid');
-    if (alertas.length > 0) {
-      alertsGrid.innerHTML = alertas.map(a => `
-        <div class="alert-box ${a.tipo}">
-          <h3>${a.titulo}</h3>
-          <p>${a.detalle}</p>
-        </div>`).join('');
-      alertsCard.style.display = 'block';
-    } else {
-      alertsCard.style.display = 'none';
-    }
-
-    // Mostrar resultados
-    document.getElementById('resultSection').style.display = 'block';
-
-    // Generar correo por defecto
-    generateEmail();
-  }
-
-  // ── Tabs ───────────────────────────────────────────────────────
-  function showTab(name) {
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-      const tabs = ['analisis', 'correo', 'observaciones'];
-      b.classList.toggle('active', tabs[i] === name);
+    const response = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: 'Eres un experto en fiscalización aduanera de SUNAT Perú. Respondes ÚNICAMENTE en JSON válido y puro, sin ningún texto adicional, sin markdown, sin bloques de código.',
+        messages: [{ role: 'user', content: userContent }]
+      })
     });
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(`tab-${name}`).classList.add('active');
-  }
 
-  // ── Tipo de correo ─────────────────────────────────────────────
-  function setEmailType(type, btn) {
-    currentEmailType = type;
-    document.querySelectorAll('.email-type-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    generateEmail();
-  }
+    progressBar.style.width = '85%';
+    progressLabel.textContent = 'Procesando respuesta...';
 
-  // ── Generar correo ─────────────────────────────────────────────
-  async function generateEmail() {
-    if (!analysisResult) return;
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || `Error HTTP ${response.status}`);
+    }
 
-    const emailContent = document.getElementById('emailContent');
-    emailContent.innerHTML = '<em style="color:#aaa">Generando correo...</em>';
+    const data = await response.json();
+    const rawText = data.content?.[0]?.text || '';
 
-    const tipoTexto = {
-      total: 'DESBLOQUEO TOTAL de la mercancía, indicando que no se encontraron irregularidades y puede proceder al levante',
-      parcial: 'DESBLOQUEO PARCIAL de la mercancía, indicando qué unidades o bultos quedan retenidos y cuáles se liberan',
-      retencion: 'RETENCIÓN TOTAL / COMISO de la mercancía, indicando las causales legales y los artículos del D.L. 1053 aplicables'
-    };
-
-    const prompt = `Redacta un correo oficial de ${tipoTexto[currentEmailType]}.
-
-Datos del expediente:
-- Importador: ${analysisResult.importador}
-- DAM/Manifiesto: ${analysisResult.dam}
-- País de origen: ${analysisResult.origen}
-- Valor FOB: ${analysisResult.fob}
-- Estado: ${analysisResult.estado}
-- Observaciones detectadas: ${analysisResult.observaciones}
-
-El correo debe:
-1. Usar formato oficial SUNAT con membrete, referencia y numeración
-2. Dirigirse al importador o agente de aduanas
-3. Citar los documentos revisados del expediente
-4. Usar lenguaje formal, técnico y preciso
-5. Incluir los fundamentos legales pertinentes (D.L. 1053, Ley General de Aduanas)
-6. Firmarse como: División de Control / Intendencia de Aduana
-
-Redacta SOLO el cuerpo del correo, listo para enviar.`;
-
+    let parsed;
     try {
-      const response = await fetch('/api/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-opus-4-5',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-
-      const data = await response.json();
-      const text = data.content?.[0]?.text || '(Error al generar correo)';
-      emailContent.textContent = text;
-    } catch (err) {
-      emailContent.textContent = `Error al generar correo: ${err.message}`;
+      parsed = JSON.parse(rawText);
+    } catch {
+      const match = rawText.match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+      else throw new Error('La respuesta no contiene JSON válido. Intenta de nuevo.');
     }
-  }
 
-  function copyEmail() {
-    const text = document.getElementById('emailContent').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = document.querySelector('.copy-btn');
-      btn.textContent = '✓ Copiado';
-      setTimeout(() => { btn.textContent = '📋 Copiar'; }, 2000);
+    analysisResult = parsed;
+    chatHistory = [
+      { role: 'user', content: `Contexto del expediente analizado:\n${parsed.resumen_chat || 'Expediente aduanero analizado.'}\n\nEstoy listo para responder preguntas específicas sobre este expediente.` },
+      { role: 'assistant', content: `Entendido. He analizado el expediente de **${parsed.importador}** (DAM: ${parsed.dam}). Estado general: **${parsed.estado}**. ¿En qué aspecto quieres que me enfoque?` }
+    ];
+
+    progressBar.style.width = '100%';
+    progressLabel.textContent = '✓ Análisis completado';
+    renderResults(parsed);
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 2000);
+
+  } catch (err) {
+    progressBar.style.width = '100%';
+    progressBar.style.background = '#dc3545';
+    progressLabel.textContent = `Error: ${err.message}`;
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 Analizar Expediente';
+  }
+}
+
+// ── RENDER RESULTADOS ────────────────────────────────────────
+function renderResults(data) {
+  // Meta
+  document.getElementById('mImportador').textContent = data.importador || '–';
+  document.getElementById('mDAM').textContent = data.dam || '–';
+  document.getElementById('mFOB').textContent = data.fob || '–';
+  document.getElementById('mOrigen').textContent = data.origen || '–';
+
+  const estadoClase = { 'CONFORME': 'estado-conforme', 'OBSERVADO': 'estado-observado' };
+  const estadoEl = document.getElementById('mEstado');
+  estadoEl.innerHTML = `<span class="estado-badge ${estadoClase[data.estado] || 'estado-verificar'}">${data.estado || '–'}</span>`;
+
+  // Documentos
+  renderItems('ri-documentos', data.documentos || [], item => ({
+    estado: item.estado,
+    label: item.doc,
+    text: `${item.numero ? `<strong>${item.numero}</strong> — ` : ''}${item.detalle}`
+  }));
+
+  // Concordancia
+  renderItems('ri-concordancia', data.concordancia || [], item => ({
+    estado: item.estado,
+    label: item.campo,
+    text: item.detalle
+  }));
+
+  // Valores
+  renderItems('ri-valores', data.valores || [], item => ({
+    estado: item.estado,
+    label: item.concepto,
+    text: item.detalle
+  }));
+
+  // Permisos
+  renderItems('ri-permisos', data.permisos || [], item => ({
+    estado: item.estado === 'ok' ? 'ok' : item.estado === 'pendiente' ? 'warn' : item.requiere ? 'warn' : 'info',
+    label: item.mercancia + (item.entidad ? ` · ${item.entidad}` : ''),
+    text: item.detalle
+  }));
+
+  // Partidas
+  const pg = document.getElementById('partidas-grid');
+  pg.innerHTML = '';
+  (data.partidas || []).forEach(p => {
+    const estadoClass = { ok: 'pe-ok', warn: 'pe-warn', error: 'pe-error' }[p.estado] || 'pe-warn';
+    const estadoLabel = { ok: '✓ Correcta', warn: '⚠ Revisar', error: '✕ Incorrecta' }[p.estado] || '?';
+    pg.innerHTML += `
+      <div class="partida-card">
+        <div class="partida-nandina">Serie ${p.serie} · ${p.nandina}</div>
+        <div class="partida-desc">${p.descripcion}</div>
+        <div class="partida-detalle">${p.detalle}</div>
+        <div class="partida-detalle" style="margin-top:6px; color:#333;">${p.comentario}</div>
+        <span class="partida-estado ${estadoClass}">${estadoLabel}</span>
+      </div>`;
+  });
+
+  // Alertas
+  const ag = document.getElementById('alertas-grid');
+  ag.innerHTML = '';
+  if ((data.alertas || []).length === 0) {
+    ag.innerHTML = `<div class="alerta-box verde"><h4>✓ Sin alertas especiales</h4><p>No se detectaron alertas de VIN, marcas, triangulación ni subvaloración.</p></div>`;
+  } else {
+    data.alertas.forEach(a => {
+      ag.innerHTML += `<div class="alerta-box ${a.nivel}"><h4>${a.titulo}</h4><p>${a.detalle}</p></div>`;
     });
   }
+
+  // Observaciones
+  const obsMap = { alta: 'error', media: 'warn', baja: 'info' };
+  renderItems('ri-observaciones', data.observaciones || [], item => ({
+    estado: obsMap[item.prioridad] || 'info',
+    label: `[${(item.prioridad || '').toUpperCase()}] ${item.titulo}`,
+    text: item.detalle
+  }));
+
+  // Mostrar resultados
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultadosWrap').style.display = 'flex';
+  document.getElementById('resultadosWrap').style.flexDirection = 'column';
+
+  // Auto-generar correo
+  generateEmail();
+}
+
+function renderItems(containerId, items, mapper) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div style="color:#aaa;font-size:0.8rem;padding:8px 0;">Sin datos disponibles.</div>';
+    return;
+  }
+  items.forEach(item => {
+    const { estado, label, text } = mapper(item);
+    const cls = { ok: 'ri-ok', warn: 'ri-warn', error: 'ri-error', info: 'ri-info', pendiente: 'ri-warn' }[estado] || 'ri-info';
+    container.innerHTML += `
+      <div class="result-item ${cls}">
+        <div class="ri-indicator"></div>
+        <div class="ri-content">
+          <div class="ri-label">${label}</div>
+          <div class="ri-text">${text}</div>
+        </div>
+      </div>`;
+  });
+}
+
+// ── TABS ────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.remove('active');
+    c.style.display = 'none';
+  });
+  const tab = document.getElementById(`tab-${name}`);
+  if (tab) {
+    tab.classList.add('active');
+    tab.style.display = name === 'chat' ? 'flex' : 'flex';
+    tab.style.flexDirection = 'column';
+  }
+}
+
+// ── CORREO ──────────────────────────────────────────────────
+function setEmailType(type, btn) {
+  currentEmailType = type;
+  document.querySelectorAll('.email-tipo-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // Mostrar/ocultar campos según tipo
+  const campoInmov      = document.getElementById('campo_acta_inmov');
+  const campoLevante    = document.getElementById('campo_acta_levante');
+  const campoIncautacion= document.getElementById('campo_acta_incautacion');
+  const campoCanal      = document.getElementById('campo_canal');
+
+  // Reset
+  [campoInmov, campoLevante, campoIncautacion, campoCanal].forEach(c => { if(c) c.style.display = 'none'; });
+
+  if (type === 'levante_inmov') {
+    campoInmov.style.display = 'block';
+    campoLevante.style.display = 'block';
+  } else if (type === 'desbloqueo_parcial') {
+    campoIncautacion.style.display = 'block';
+    campoCanal.style.display = 'block';
+  }
+
+  generarCorreoAuto();
+}
+
+function getExpData() {
+  if (!analysisResult) return {};
+  return {
+    agencia:   analysisResult.agencia_nombre   || '[AGENCIA]',
+    agenciaCod:analysisResult.agencia_codigo   || '[COD]',
+    agenciaRuc:analysisResult.agencia_ruc      || '[RUC]',
+    deposito:  analysisResult.deposito_nombre  || '[DEPOSITO]',
+    depositoCod:analysisResult.deposito_codigo || '[COD]',
+    depositoRuc:analysisResult.deposito_ruc    || '[RUC]',
+    ace:       analysisResult.ace              || '[N° ACE]',
+    dam:       analysisResult.dam              || '[N° DAM]',
+    canal:     document.getElementById('canalDAM')?.value || 'CANAL VERDE',
+  };
+}
+
+function generarCorreoAuto() {
+  if (!analysisResult) return;
+
+  const d = getExpData();
+  const nInsp    = document.getElementById('nActaInspeccion')?.value?.trim()   || '[N° ACTA INSPECCIÓN]';
+  const nInmov   = document.getElementById('nActaInmov')?.value?.trim()        || '[N° ACTA INMOVILIZACIÓN]';
+  const nLevante = document.getElementById('nActaLevante')?.value?.trim()      || '[N° ACTA LEVANTAMIENTO]';
+  const nIncaut  = document.getElementById('nActaIncautacion')?.value?.trim()  || '[N° ACTA INCAUTACIÓN]';
+  const canal    = d.canal;
+
+  let asunto = '';
+  let cuerpo = '';
+
+  if (currentEmailType === 'desbloqueo_total') {
+    asunto = `DESBLOQUEO TOTAL CONCLUSION DE ACE N° ${d.ace} DAM: ${d.dam}`;
+    cuerpo =
+`Señores:
+
+${d.agencia} – (${d.agenciaCod}) – RUC: ${d.agenciaRuc}
+
+${d.deposito} (${d.depositoCod}) – RUC: ${d.depositoRuc}
+
+Por medio del presente se comunica que como resultado de la implementación de la Acción de Control Extraordinaria ACE N°${d.ace} sobre las mercancías vinculadas a la DAM N°${d.dam}, se elaboró el Acta de Inspección N° ${nInsp}, la cual se adjunta.
+
+En ese sentido, se da por culminada la acción de control extraordinaria, por lo que se solicita el DESBLOQUEO TOTAL de las mercancías que corresponden a la DAM N°${d.dam}, a fin de que el AGENTE DE ADUANAS continúe con los trámites aduaneros correspondientes.
+
+Agradeceré se sirvan confirmar por este medio la recepción del presente comunicado.
+
+Cordialmente,`;
+
+  } else if (currentEmailType === 'levante_inmov') {
+    asunto = `Comunica levantamiento de inmovilización de mercancía ref. ACE N° ${d.ace} // DAM: ${d.dam}`;
+    cuerpo =
+`Señores:
+
+${d.agencia} – (${d.agenciaCod}) – RUC: ${d.agenciaRuc}
+
+${d.deposito} (${d.depositoCod}) – RUC: ${d.depositoRuc}
+
+Por encargo de la División de Control Operativo de la IAMC, para los fines de su competencia, se comunica que se ha generado el Acta de Levantamiento de inmovilización N° ${nLevante}, respecto del Acta de Inmovilización N° ${nInmov} (DAM N° ${d.dam}) vinculada a la ACE N° ${d.ace}.
+
+En ese sentido, se solicita proceder al LEVANTE TOTAL del acta de inmovilización ${nInmov}.
+
+Atentamente,`;
+
+  } else if (currentEmailType === 'desbloqueo_parcial') {
+    asunto = `DESBLOQUEO PARCIAL ACE ${d.ace} / DAM ${d.dam}`;
+    cuerpo =
+`Señores:
+
+${d.agencia} – (${d.agenciaCod}) – RUC: ${d.agenciaRuc}
+
+${d.deposito} (${d.depositoCod}) – RUC: ${d.depositoRuc}
+
+Por medio del presente se comunica que como resultado de la implementación de la Acción de Control Extraordinaria N° ${d.ace} sobre las mercancías vinculadas a la DAM ${d.dam} (${canal}), se elaboró el Acta de Inspección N° ${nInsp} y el Acta de Incautación N°${nIncaut}, las cuales se adjuntan.
+
+En consecuencia, SON DE LIBRE DISPONIBILIDAD las series de la DAM ${d.dam} (${canal}), que NO son parte de la medida preventiva de incautación señalada; lo que se informa a fin de que el importador o agencia de aduanas continúe con los trámites aduaneros correspondientes al despacho ordinario (DAM ${canal.toLowerCase()}) sobre la mercancía sin incidencia.
+
+SOLO QUEDA INCAUTADA la mercancía señalada en el AC ${nIncaut} vinculada a la DAM ${d.dam} (${canal})
+
+Cordialmente,`;
+  }
+
+  document.getElementById('emailAsunto').textContent = asunto;
+  document.getElementById('emailContent').textContent = cuerpo;
+}
+
+function copyEmail() {
+  const text = document.getElementById('emailContent').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado!';
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  });
+}
+
+function copyAsunto() {
+  const text = document.getElementById('emailAsunto').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Asunto copiado ✓');
+  });
+}
+
+// generateEmail se mantiene como alias por compatibilidad
+function generateEmail() { generarCorreoAuto(); }
+
+// ── CHAT ────────────────────────────────────────────────────
+function addChatMsg(role, text) {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  const avatar = role === 'user' ? '👤' : '🤖';
+  div.innerHTML = `
+    <div class="chat-avatar">${avatar}</div>
+    <div class="chat-bubble">${text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^- (.+)/gm, '<li>$1</li>').replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTypingIndicator() {
+  const msgs = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg assistant';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-typing"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || !analysisResult) return;
+
+  input.value = '';
+  autoResize(input);
+  addChatMsg('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  document.getElementById('sendBtn').disabled = true;
+  addTypingIndicator();
+
+  await sendChatWithContext(null);
+}
+
+async function sendChatWithContext(overrideMsg) {
+  const msgs = overrideMsg
+    ? [...chatHistory, { role: 'user', content: overrideMsg }]
+    : [...chatHistory];
+
+  try {
+    const systemPrompt = `Eres un experto en fiscalización aduanera de SUNAT Perú. Estás asistiendo al análisis del siguiente expediente:
+
+${JSON.stringify(analysisResult, null, 2)}
+
+Responde de forma concisa, técnica y estructurada. Usa puntos y negritas cuando sea útil. Si el usuario sube archivos adicionales, analízalos en el contexto del expediente ya revisado.`;
+
+    const response = await fetch('/api/proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        system: systemPrompt,
+        messages: msgs
+      })
+    });
+
+    const data = await response.json();
+    const reply = data.content?.[0]?.text || 'No pude generar una respuesta.';
+
+    removeTypingIndicator();
+    addChatMsg('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+
+  } catch (err) {
+    removeTypingIndicator();
+    addChatMsg('assistant', `Error al conectar: ${err.message}`);
+  } finally {
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
 </script>
+
 </body>
 </html>
