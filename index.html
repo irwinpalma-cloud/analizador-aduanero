@@ -1239,9 +1239,19 @@ Analiza TODOS los documentos del expediente y responde ÚNICAMENTE en JSON puro 
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      const match = rawText.match(/\{[\s\S]*\}/);
-      if (match) parsed = JSON.parse(match[0]);
-      else throw new Error('La respuesta no contiene JSON válido. Intenta de nuevo.');
+      try {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) {
+          const cleaned = match[0]
+            .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
+            .replace(/,(\s*[}\]])/g, '$1');
+          parsed = JSON.parse(cleaned);
+        } else {
+          throw new Error('Sin JSON en la respuesta.');
+        }
+      } catch {
+        throw new Error('Respuesta inválida de Claude. Intenta con menos archivos o instrucciones más específicas.');
+      }
     }
 
     analysisResult = parsed;
