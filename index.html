@@ -1159,54 +1159,9 @@ async function analyzeDocuments() {
 
 ${instrucciones ? `INSTRUCCIONES ESPECIALES DEL FISCALIZADOR:\n${instrucciones}\n\n` : ''}
 
-Analiza TODOS los documentos del expediente y responde ÚNICAMENTE en JSON puro válido (sin markdown, sin texto adicional) con esta estructura exacta:
+Analiza los documentos y responde SOLO en JSON puro valido, sin markdown, sin texto extra. Sé conciso, max 20 palabras por detalle:
 
-{
-  "importador": "nombre corto del importador",
-  "dam": "número de DAM o declaración",
-  "origen": "país(es) de origen",
-  "aduana": "aduana de ingreso",
-  "fob": "USD X,XXX.XX",
-  "estado": "CONFORME" | "OBSERVADO" | "REQUIERE VERIFICACIÓN",
-
-  "documentos": [
-    { "doc": "nombre del documento", "numero": "número o referencia", "estado": "ok" | "warn" | "error" | "info", "detalle": "observación concisa" }
-  ],
-
-  "concordancia": [
-    { "campo": "qué se verificó", "estado": "ok" | "warn" | "error", "detalle": "resultado del cruce entre documentos" }
-  ],
-
-  "valores": [
-    { "concepto": "nombre", "estado": "ok" | "warn" | "error" | "info", "detalle": "análisis del valor/tributo" }
-  ],
-
-  "permisos": [
-    { "mercancia": "tipo de mercancía", "requiere": true | false, "entidad": "entidad si aplica", "estado": "ok" | "warn" | "pendiente", "detalle": "situación actual" }
-  ],
-
-  "partidas": [
-    { "serie": 1, "nandina": "xx.xx.xx.xx.xx", "descripcion": "nombre corto", "detalle": "descripción de la mercancía declarada", "estado": "ok" | "warn" | "error", "comentario": "análisis de si la partida es correcta o debe revisarse" }
-  ],
-
-  "alertas": [
-    { "tipo": "VIN" | "MARCAS" | "OTO" | "VALOR" | "SUBVALORACION" | "DESCRIPCION" | "OTRO", "nivel": "rojo" | "naranja" | "amarillo" | "verde", "titulo": "título corto", "detalle": "descripción del hallazgo" }
-  ],
-
-  "observaciones": [
-    { "prioridad": "alta" | "media" | "baja", "titulo": "título corto", "detalle": "observación detallada con fundamento técnico" }
-  ],
-
-  "agencia_nombre": "nombre completo de la agencia de aduanas (declarante)",
-  "agencia_codigo": "código de la agencia (ej: 5901)",
-  "agencia_ruc": "RUC de la agencia",
-  "deposito_nombre": "nombre completo del depósito o terminal de almacenamiento",
-  "deposito_codigo": "código del depósito (ej: 3029)",
-  "deposito_ruc": "RUC del depósito",
-  "ace": "número de Acción de Control Extraordinaria si aparece en los documentos, sino dejar vacío",
-
-  "resumen_chat": "Resumen ejecutivo de 3-4 líneas del expediente para contexto del chat posterior"
-}`
+{"importador":"nombre corto","dam":"numero DAM","origen":"pais","aduana":"aduana","fob":"USD X,XXX.XX","estado":"CONFORME","agencia_nombre":"nombre agencia","agencia_codigo":"cod","agencia_ruc":"ruc","deposito_nombre":"nombre deposito","deposito_codigo":"cod","deposito_ruc":"ruc","ace":"N ACE o vacio","documentos":[{"doc":"nombre","numero":"ref","estado":"ok","detalle":"breve"}],"concordancia":[{"campo":"verificado","estado":"ok","detalle":"breve"}],"valores":[{"concepto":"nombre","estado":"ok","detalle":"breve"}],"partidas":[{"serie":1,"nandina":"xx.xx.xx","descripcion":"nombre","estado":"ok","comentario":"breve"}],"alertas":[{"nivel":"verde","titulo":"titulo","detalle":"breve"}],"observaciones":[{"prioridad":"alta","titulo":"titulo","detalle":"breve"}],"permisos":[{"mercancia":"tipo","requiere":false,"entidad":"","estado":"ok","detalle":"breve"}],"resumen_chat":"resumen 2 lineas"}`
       }
     ];
 
