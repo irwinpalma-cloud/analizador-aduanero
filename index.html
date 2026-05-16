@@ -1218,8 +1218,8 @@ Analiza TODOS los documentos del expediente y responde ÚNICAMENTE en JSON puro 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: 'Eres un experto en fiscalización aduanera de SUNAT Perú. Respondes ÚNICAMENTE en JSON válido y puro, sin ningún texto adicional, sin markdown, sin bloques de código.',
+        max_tokens: 8000,
+        system: 'Eres un experto en fiscalización aduanera de SUNAT Perú. Respondes ÚNICAMENTE en JSON válido y puro. NUNCA uses markdown. NUNCA agregues texto antes o después del JSON. El JSON debe estar completo y bien cerrado.',
         messages: [{ role: 'user', content: userContent }]
       })
     });
