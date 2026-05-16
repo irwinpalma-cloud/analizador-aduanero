@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       const data = JSON.parse(text);
       return res.status(response.status).json(data);
     } catch {
-      return res.status(500).json({ error: 'Respuesta inválida de Anthropic', raw: text.slice(0, 200) });
+      return res.status(500).json({ error: 'Respuesta inválida de Anthropic', raw: text.slice(0, 500) });
     }
   } catch (error) {
     return res.status(500).json({ error: error.message });
