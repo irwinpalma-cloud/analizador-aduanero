@@ -1217,7 +1217,7 @@ Analiza TODOS los documentos del expediente y responde ÚNICAMENTE en JSON puro 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4096,
         system: 'Eres un experto en fiscalización aduanera de SUNAT Perú. Respondes ÚNICAMENTE en JSON válido y puro, sin ningún texto adicional, sin markdown, sin bloques de código.',
         messages: [{ role: 'user', content: userContent }]
@@ -1577,7 +1577,7 @@ Responde de forma concisa, técnica y estructurada. Usa puntos y negritas cuando
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1200,
         system: systemPrompt,
         messages: msgs
