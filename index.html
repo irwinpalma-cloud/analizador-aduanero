@@ -1187,7 +1187,23 @@ Analiza los documentos y responde SOLO en JSON puro valido, sin markdown, sin te
       throw new Error(err.error?.message || `Error HTTP ${response.status}`);
     }
 
-    ```javascript let data;  try {    data = await response.json();  } catch (e) {    const text = await response.text();    console.error("Respuesta inválida:", text);    throw new Error(     "El servidor devolvió una respuesta inválida."   ); } ```
+    let data;
+
+try {
+
+  data = await response.json();
+
+} catch (e) {
+
+  const text = await response.text();
+
+  console.error("Respuesta inválida:", text);
+
+  throw new Error(
+    "El servidor devolvió una respuesta inválida."
+  );
+}
+
     const rawText = data.content?.[0]?.text || '';
 
     let parsed;
@@ -1549,7 +1565,23 @@ Responde de forma concisa, técnica y estructurada. Usa puntos y negritas cuando
       })
     });
 
-    ```javascript let data;  try {    data = await response.json();  } catch (e) {    const text = await response.text();    console.error("Respuesta inválida:", text);    throw new Error(     "El servidor devolvió una respuesta inválida."   ); } ```
+    let data;
+
+try {
+
+  data = await response.json();
+
+} catch (e) {
+
+  const text = await response.text();
+
+  console.error("Respuesta inválida:", text);
+
+  throw new Error(
+    "El servidor devolvió una respuesta inválida."
+  );
+}
+
     const reply = data.content?.[0]?.text || 'No pude generar una respuesta.';
 
     removeTypingIndicator();
