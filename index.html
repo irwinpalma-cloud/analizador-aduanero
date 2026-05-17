@@ -18,8 +18,8 @@ header{background:linear-gradient(135deg,#001f5c 0%,var(--azul) 60%,var(--azul-m
 header h1{font-size:1.1rem;font-weight:700;}
 header p{font-size:0.72rem;opacity:0.7;margin-top:2px;font-family:'IBM Plex Mono',monospace;}
 .vbadge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:4px 12px;border-radius:20px;font-size:0.72rem;font-family:'IBM Plex Mono',monospace;}
-.layout{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 58px);}
-.panel-left{background:white;border-right:1px solid var(--gris-borde);display:flex;flex-direction:column;overflow:hidden;}
+.layout{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 58px);}
+.panel-left{background:white;border-right:1px solid var(--gris-borde);display:flex;flex-direction:column;overflow-y:auto;}
 .ps{padding:16px;border-bottom:1px solid #f0f0f0;}
 .ps:last-child{border-bottom:none;flex:1;overflow-y:auto;}
 .stitle{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--texto-suave);margin-bottom:10px;}
@@ -54,12 +54,12 @@ textarea.inst::placeholder{color:#aaa;}
 .prog-bg{background:#e9ecef;border-radius:8px;height:6px;overflow:hidden;}
 .prog-bar{height:100%;background:linear-gradient(90deg,var(--azul),#0099ff);border-radius:8px;transition:width .4s ease;}
 .prog-label{font-size:0.7rem;color:var(--texto-suave);margin-top:5px;font-family:'IBM Plex Mono',monospace;}
-.panel-right{display:flex;flex-direction:column;overflow:hidden;background:var(--gris-bg);}
+.panel-right{display:flex;flex-direction:column;overflow-y:auto;background:var(--gris-bg);}
 .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#c0c8d8;gap:10px;padding:40px;}
 .empty-state .es-icon{font-size:3.5rem;}
 .empty-state h2{font-size:1rem;font-weight:700;color:#b0b8cc;}
 .empty-state p{font-size:0.82rem;text-align:center;max-width:300px;line-height:1.6;}
-.res-wrap{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.res-wrap{display:none;flex-direction:column;flex:1;overflow-y:auto;}
 .meta-bar{background:white;border-bottom:1px solid var(--gris-borde);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 .mp{display:flex;flex-direction:column;gap:1px;}
 .mp label{font-size:0.63rem;text-transform:uppercase;letter-spacing:.8px;color:var(--texto-suave);font-weight:700;}
@@ -73,7 +73,7 @@ textarea.inst::placeholder{color:#aaa;}
 .tab-btn{padding:11px 16px;border:none;border-bottom:3px solid transparent;background:none;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:0.78rem;font-weight:600;color:var(--texto-suave);transition:all .15s;white-space:nowrap;}
 .tab-btn:hover{color:var(--azul);}
 .tab-btn.active{color:var(--azul);border-bottom-color:var(--azul);}
-.tab-content{display:none;flex:1;overflow-y:auto;padding:20px;flex-direction:column;gap:14px;}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:20px;flex-direction:column;gap:14px;min-height:400px;}
 .tab-content.active{display:flex;}
 .rcard{background:white;border-radius:12px;border:1px solid var(--gris-borde);overflow:hidden;box-shadow:var(--sombra);}
 .rcard-h{padding:12px 16px;display:flex;align-items:center;gap:9px;border-bottom:1px solid #f0f0f0;background:#fafbfc;}
@@ -167,7 +167,7 @@ textarea.inst::placeholder{color:#aaa;}
 .chat-send:disabled{opacity:.4;cursor:not-allowed;}
 .spinner{display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
-::-webkit-scrollbar{width:5px;height:5px;}
+@media(max-width:800px){.layout{grid-template-columns:1fr;}.panel-left{max-height:50vh;overflow-y:auto;}.panel-right{min-height:50vh;}} .res-wrap{overflow-y:auto!important;} .tab-content.active{overflow-y:auto!important;display:flex!important;flex-direction:column!important;} ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}
 </style>
