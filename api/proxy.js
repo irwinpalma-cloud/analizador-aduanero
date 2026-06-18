@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: body.model || 'claude-sonnet-4-6',
-        max_tokens: body.max_tokens || 4096,
+        max_tokens: body.max_tokens || 8000,
         messages: body.messages,
         system: body.system,
       }),
@@ -30,7 +30,6 @@ export default async function handler(req, res) {
       const data = JSON.parse(text);
       return res.status(response.status).json(data);
     } catch {
-      // Devolver los primeros 500 caracteres para diagnóstico
       return res.status(500).json({ 
         error: 'Respuesta inválida de Anthropic', 
         raw: text.slice(0, 500) 
