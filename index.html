@@ -381,6 +381,8 @@ textarea.inst::placeholder{color:#aaa;}
         <p style="font-size:0.78rem;color:var(--texto-suave);margin-bottom:12px;line-height:1.5;">
           Registra aquí lo que encontraste en la inspección física. Esta información se guardará junto al expediente y Claude la usará como referencia en futuros análisis similares.
         </p>
+        <button class="btn-sec" style="margin-bottom:10px;" onclick="resumirChatAHallazgos()">📋 Resumir chat → Hallazgos</button>
+        <div id="resumenChatStatus" style="font-size:0.75rem;margin-bottom:10px;display:none;"></div>
         <div id="feedbackForm">
           <textarea class="fb-ta" id="fbHallazgos" placeholder="Ej: Placa del motor indica 150cc pero DAM declara 250cc. Serie del chasis no coincide con B/L. Embalaje en buen estado. Cantidad conforme..."></textarea>
           <div style="margin-top:8px;">
@@ -1300,6 +1302,78 @@ async function sendWithCtx(override){
 // =============================================
 // FEEDBACK / HALLAZGOS FÍSICOS
 // =============================================
+// =============================================
+// RESUMIR CHAT → HALLAZGOS (punto ③)
+// =============================================
+async function resumirChatAHallazgos(){
+  const statusEl = document.getElementById('resumenChatStatus');
+  statusEl.style.display='block';
+  statusEl.style.color='var(--texto-suave)';
+  statusEl.textContent='Leyendo la conversación y extrayendo lo importante...';
+
+  // Asegurar que el formulario esté visible (por si ya había hallazgos guardados)
+  document.getElementById('feedbackForm').style.display='block';
+  document.getElementById('feedbackGuardado').style.display='none';
+
+  if(!chatHistory || chatHistory.length <= 2){
+    statusEl.style.color='var(--naranja)';
+    statusEl.textContent='⚠️ Todavía no hay conversación en el Chat para resumir. Habla primero con Claude en la pestaña Chat.';
+    return;
+  }
+
+  // Transcripción de solo texto (sin imágenes, para no inflar la petición)
+  const transcripcion = chatHistory.map(m=>{
+    let txt='';
+    if(typeof m.content==='string') txt=m.content;
+    else if(Array.isArray(m.content)) txt=m.content.filter(c=>c.type==='text').map(c=>c.text).join(' ');
+    return txt ? `${m.role==='user'?'ESPECIALISTA':'ASISTENTE'}: ${txt}` : '';
+  }).filter(Boolean).join('\n\n');
+
+  try{
+    const sys=`Eres un asistente que extrae hallazgos de inspección aduanera SUNAT desde una conversación de chat. Lee la transcripción completa y devuelve SOLO un JSON, sin texto adicional ni markdown, con este formato exacto:
+{"hallazgos":"resumen claro y técnico de los hallazgos físicos y documentales más importantes mencionados, en frases cortas o viñetas con guiones","resultado_sugerido":"CONFORME o INMOVILIZADO o INCAUTADO o OBSERVADO, según lo que se desprenda de la conversación, o vacio si no es claro","lecciones":"señales de alerta o lecciones aprendidas mencionadas en la conversación, vacio si no hay"}`;
+    const resp=await fetch('/api/proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-6', max_tokens:1200, system:sys,
+      messages:[{role:'user',content:`Transcripción de la conversación:\n\n${transcripcion}`}]
+    })});
+    const data=await resp.json();
+    const raw=data.content?.[0]?.text||'';
+    let parsed;
+    try{ parsed=JSON.parse(raw); }
+    catch{
+      const m=raw.match(/\{[\s\S]*\}/);
+      if(m) parsed=JSON.parse(m[0]);
+      else throw new Error('No se pudo interpretar la respuesta del resumen.');
+    }
+
+    const taHallazgos=document.getElementById('fbHallazgos');
+    const taLecciones=document.getElementById('fbLecciones');
+    const selResultado=document.getElementById('fbResultado');
+
+    const yaHabiaAlgo = taHallazgos.value.trim().length>0;
+    let modo='reemplazar';
+    if(yaHabiaAlgo){
+      modo = confirm('Ya tienes hallazgos escritos en el campo.\n\nAceptar = COMBINAR con lo nuevo del chat.\nCancelar = REEMPLAZAR todo con el resumen nuevo.') ? 'combinar' : 'reemplazar';
+    }
+
+    if(modo==='combinar'){
+      taHallazgos.value = taHallazgos.value.trim() + (parsed.hallazgos?`\n\n— Resumen del chat —\n${parsed.hallazgos}`:'');
+      if(parsed.lecciones) taLecciones.value = (taLecciones.value.trim()?taLecciones.value.trim()+'\n\n':'') + parsed.lecciones;
+    } else {
+      taHallazgos.value = parsed.hallazgos || '';
+      taLecciones.value = parsed.lecciones || '';
+    }
+    if(parsed.resultado_sugerido) selResultado.value = parsed.resultado_sugerido;
+
+    statusEl.style.color='var(--verde)';
+    statusEl.textContent='✓ Campos pre-llenados desde el chat. Revísalos y dale a "Guardar hallazgos" para confirmar.';
+  }catch(e){
+    statusEl.style.color='var(--rojo)';
+    statusEl.textContent=`Error al resumir: ${e.message}`;
+    console.error(e);
+  }
+}
+
 async function guardarFeedback(){
   // Recuperar ID de sessionStorage si se perdió en memoria
   if(!currentExpedienteId){
