@@ -498,7 +498,12 @@ async function sbFetch(endpoint, method='GET', body=null){
     };
     if(body) opts.body = JSON.stringify(body);
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, opts);
-    const data = await r.json();
+    const data = await r.json().catch(()=>null);
+    if(!r.ok){
+      setSyncStatus('error');
+      const msg = data?.message || data?.hint || data?.details || `Error ${r.status}`;
+      throw new Error(`Supabase rechazó la operación: ${msg}`);
+    }
     setSyncStatus('ok');
     return data;
   } catch(e){
@@ -732,20 +737,32 @@ function renderPermisoPending(){
 async function guardarPermisos(){
   const validos = pendingPermisos.filter(p=>p.texto && p.entidad);
   if(!validos.length){ alert('Cada permiso necesita texto extraído y una entidad seleccionada.'); return; }
+  let ok = 0, fallos = [];
   for(const p of validos){
-    await sbFetch('base_normativa', 'POST', {
-      tipo: 'permiso',
-      entidad: p.entidad,
-      nombre: p.name,
-      contenido: p.texto,
-      descripcion: `Permiso/autorización de ${p.entidad}: ${p.name}`,
-      activo: true
-    });
+    try{
+      await sbFetch('base_normativa', 'POST', {
+        tipo: 'permiso',
+        entidad: p.entidad,
+        nombre: p.name,
+        contenido: p.texto,
+        descripcion: `Permiso/autorización de ${p.entidad}: ${p.name}`,
+        activo: true
+      });
+      ok++;
+    }catch(e){
+      fallos.push(`${p.name}: ${e.message}`);
+    }
   }
-  pendingPermisos = pendingPermisos.filter(p=>!(p.texto && p.entidad));
-  renderPermisoPending();
-  loadAdminNormativa();
-  alert(`${validos.length} permiso(s) guardado(s) correctamente.`);
+  if(ok>0){
+    pendingPermisos = pendingPermisos.filter(p=>!(validos.includes(p)));
+    renderPermisoPending();
+    loadAdminNormativa();
+  }
+  if(fallos.length){
+    alert(`${ok} guardado(s) correctamente.\n\n${fallos.length} fallaron:\n${fallos.join('\n')}`);
+  } else {
+    alert(`${ok} permiso(s) guardado(s) correctamente.`);
+  }
 }
 
 // =============================================
