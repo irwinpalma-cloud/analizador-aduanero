@@ -495,6 +495,8 @@ async function cargarExpedienteHistorial(id){
     if(data && data[0] && data[0].resultado_json){
       analysisResult = data[0].resultado_json;
       currentExpedienteId = data[0].id;
+      sessionStorage.setItem('currentExpedienteId', currentExpedienteId);
+      sessionStorage.setItem('analysisResult', JSON.stringify(analysisResult));
       renderResults(analysisResult);
       // Mostrar feedback si existe
       if(data[0].hallazgos_fisicos || data[0].feedback){
@@ -557,6 +559,7 @@ async function guardarEnHistorial(resultado){
     const data = await sbFetch('expedientes', 'POST', payload);
     if(data && data[0]) {
       currentExpedienteId = data[0].id;
+      sessionStorage.setItem('currentExpedienteId', currentExpedienteId);
       loadHistorial();
     }
   } catch(e){ console.error('Error guardando expediente:', e); }
@@ -974,8 +977,13 @@ async function sendWithCtx(override){
 // FEEDBACK / HALLAZGOS FÍSICOS
 // =============================================
 async function guardarFeedback(){
+  // Recuperar ID de sessionStorage si se perdió en memoria
   if(!currentExpedienteId){
-    document.getElementById('fbStatus').textContent='⚠️ Primero realiza un análisis.';
+    currentExpedienteId = sessionStorage.getItem('currentExpedienteId') || null;
+  }
+  if(!currentExpedienteId){
+    document.getElementById('fbStatus').textContent='⚠️ Primero realiza un análisis para asociar los hallazgos.';
+    document.getElementById('fbStatus').style.color='var(--naranja)';
     document.getElementById('fbStatus').style.display='block';
     return;
   }
@@ -1022,8 +1030,24 @@ function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendCh
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,110)+'px';}
 
 // =============================================
-// INIT
+// INIT — recuperar sesión activa si existe
 // =============================================
+(function recuperarSesion(){
+  const savedId = sessionStorage.getItem('currentExpedienteId');
+  const savedResult = sessionStorage.getItem('analysisResult');
+  if(savedId && savedResult){
+    try{
+      currentExpedienteId = savedId;
+      analysisResult = JSON.parse(savedResult);
+      renderResults(analysisResult);
+      document.getElementById('chatMsgs').innerHTML=`<div class="cmsg assistant"><div class="cavatar">🤖</div><div class="cbubble"><strong>Sesión recuperada.</strong> Expediente de <strong>${analysisResult.importador||'–'}</strong> (DAM: ${analysisResult.dam||'–'}) activo. Puedes ir a Hallazgos o hacer preguntas en el Chat.</div></div>`;
+      chatHistory=[
+        {role:'user',content:`Contexto: ${analysisResult.resumen_chat||'Expediente analizado'}.`},
+        {role:'assistant',content:`Entendido. Expediente de **${analysisResult.importador}** recuperado. ¿En qué te ayudo?`}
+      ];
+    }catch(e){ sessionStorage.removeItem('currentExpedienteId'); sessionStorage.removeItem('analysisResult'); }
+  }
+})();
 loadHistorial();
 </script>
 </body>
