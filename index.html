@@ -736,9 +736,10 @@ async function guardarPermisos(){
     await sbFetch('base_normativa', 'POST', {
       tipo: 'permiso',
       entidad: p.entidad,
-      nombre_documento: p.name,
+      nombre: p.name,
       contenido: p.texto,
-      descripcion: `Permiso/autorización de ${p.entidad}: ${p.name}`
+      descripcion: `Permiso/autorización de ${p.entidad}: ${p.name}`,
+      activo: true
     });
   }
   pendingPermisos = pendingPermisos.filter(p=>!(p.texto && p.entidad));
@@ -855,11 +856,11 @@ async function loadAdminNormativa(){
   const box = document.getElementById('adminNormList');
   box.innerHTML = '<div class="hist-empty">Cargando...</div>';
   try{
-    const permisos = await sbFetch('base_normativa?tipo=eq.permiso&select=id,entidad,nombre_documento,created_at&order=created_at.desc');
+    const permisos = await sbFetch('base_normativa?tipo=eq.permiso&select=id,entidad,nombre,created_at&order=created_at.desc');
     if(!permisos.length){ box.innerHTML = '<div class="hist-empty">Sin permisos guardados todavía.</div>'; return; }
     box.innerHTML = permisos.map(p=>`
       <div class="hist-item">
-        <div><strong>${p.entidad}</strong> — ${p.nombre_documento}</div>
+        <div><strong>${p.entidad}</strong> — ${p.nombre}</div>
         <button class="rm-btn" onclick="borrarNormativa('${p.id}')">✕</button>
       </div>
     `).join('');
