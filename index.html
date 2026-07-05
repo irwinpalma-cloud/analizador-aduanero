@@ -768,6 +768,34 @@ async function guardarPermisos(){
 // =============================================
 // PANEL DE ADMINISTRACIÓN — ARANCEL DE ADUANAS (Excel → Supabase)
 // =============================================
+// =============================================
+// CRUCE AUTOMÁTICO CONTRA ARANCEL (punto ②)
+// =============================================
+function soloDigitos(s){ return (s||'').toString().replace(/\D/g,''); }
+
+async function cruzarArancel(partidas){
+  if(!partidas || !partidas.length) return;
+  for(const p of partidas){
+    const digits = soloDigitos(p.nandina);
+    if(digits.length < 6){ p.arancel_estado='sin_datos'; continue; }
+    const capitulo = parseInt(digits.substring(0,2), 10);
+    try{
+      const filas = await sbFetch(`base_normativa?tipo=eq.arancel&capitulo=eq.${capitulo}&select=subpartida,descripcion`);
+      const match = (filas||[]).find(f => soloDigitos(f.subpartida).startsWith(digits.substring(0,6)));
+      if(match){
+        p.arancel_estado = 'encontrado';
+        p.arancel_subpartida = match.subpartida;
+        p.arancel_descripcion = match.descripcion;
+      } else {
+        p.arancel_estado = 'no_encontrado';
+      }
+    }catch(e){
+      p.arancel_estado = 'error';
+      console.error('Error cruzando arancel para', p.nandina, e);
+    }
+  }
+}
+
 async function refreshArancelStats(){
   const el = document.getElementById('arancelStats');
   try{
@@ -1042,7 +1070,9 @@ Responde SOLO en JSON puro válido, sin markdown, sin texto extra. Conciso, max 
       {role:'user',content:`Contexto: ${parsed.resumen_chat||'Expediente analizado'}. Responde preguntas sobre este expediente.`},
       {role:'assistant',content:`Entendido. Analicé el expediente de **${parsed.importador}** (DAM: ${parsed.dam}). Estado: **${parsed.estado}**. ¿En qué te ayudo?`}
     ];
-    pb.style.width='95%';pl.textContent='Guardando en historial...';
+    pb.style.width='95%';pl.textContent='Cruzando contra arancel...';
+    await cruzarArancel(parsed.partidas||[]);
+    pl.textContent='Guardando en historial...';
     await guardarEnHistorial(parsed);
     detectarSimilares(parsed);
     pb.style.width='100%';pl.textContent='✓ Análisis completado';
@@ -1075,7 +1105,17 @@ function renderResults(d){
   (d.partidas||[]).forEach(p=>{
     const ec2={ok:'pe-ok',warn:'pe-warn',error:'pe-error'}[p.estado]||'pe-warn';
     const el={ok:'✓ Correcta',warn:'⚠ Revisar',error:'✕ Incorrecta'}[p.estado]||'?';
-    pg.innerHTML+=`<div class="pcard"><div class="pnandina">Serie ${p.serie} · ${p.nandina}</div><div class="pdesc">${p.descripcion}</div><div class="pcoment">${p.comentario}</div><span class="pestado ${ec2}">${el}</span></div>`;
+    let arancelHtml = '';
+    if(p.arancel_estado==='encontrado'){
+      arancelHtml = `<div class="pcoment" style="margin-top:4px;padding-top:4px;border-top:1px dashed #ccc;">
+        <strong style="color:var(--verde);">🏷️ Arancel (${p.arancel_subpartida}):</strong> ${p.arancel_descripcion}
+      </div>`;
+    } else if(p.arancel_estado==='no_encontrado'){
+      arancelHtml = `<div class="pcoment" style="margin-top:4px;padding-top:4px;border-top:1px dashed #ccc;color:var(--rojo);">
+        🏷️ ⚠ Esta subpartida no existe en el arancel guardado — verificar código declarado.
+      </div>`;
+    }
+    pg.innerHTML+=`<div class="pcard"><div class="pnandina">Serie ${p.serie} · ${p.nandina}</div><div class="pdesc">${p.descripcion}</div><div class="pcoment">${p.comentario}</div>${arancelHtml}<span class="pestado ${ec2}">${el}</span></div>`;
   });
   // Hallazgos de imagen
   if((d.hallazgos_imagen||[]).length){
