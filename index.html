@@ -284,6 +284,7 @@ textarea.inst::placeholder{color:#aaa;}
       <button class="tab-btn" onclick="showTab('correo',this)">✉️ Correo</button>
       <button class="tab-btn" onclick="showTab('chat',this)">💬 Chat</button>
       <button class="tab-btn" onclick="showTab('feedback',this)">📝 Hallazgos</button>
+      <button class="tab-btn" onclick="showTab('admin',this)">⚙️ Admin</button>
     </div>
 
     <!-- TAB ANÁLISIS -->
@@ -412,10 +413,59 @@ textarea.inst::placeholder{color:#aaa;}
       </div>
     </div>
 
+    <!-- TAB PANEL DE ADMINISTRACIÓN -->
+    <div class="tab-content" id="tab-admin">
+
+      <!-- ARANCEL DE ADUANAS -->
+      <div class="sec-card">
+        <h3>🏷️ Arancel de Aduanas</h3>
+        <p style="font-size:0.78rem;color:var(--texto-suave);margin-bottom:12px;line-height:1.5;">
+          Sube el Excel del arancel de SUNAT <strong>una sola vez</strong>. Se indexa por capítulos en Supabase y queda disponible para siempre — no necesitas volver a subirlo.
+        </p>
+        <div id="arancelStats" style="font-size:0.78rem;margin-bottom:10px;color:var(--texto-suave);">Cargando estado...</div>
+        <input type="file" id="arancelInput" accept=".xlsx,.xls,.csv" style="margin-bottom:8px;"/>
+        <button class="btn-main" id="arancelBtn" onclick="importarArancel()">📥 Importar Arancel a Supabase</button>
+        <div class="prog-wrap" id="arancelProgWrap" style="display:none;margin-top:10px;">
+          <div class="prog-bar-bg"><div class="prog-bar" id="arancelProgBar"></div></div>
+          <div class="prog-label" id="arancelProgLabel">Procesando...</div>
+        </div>
+        <div id="arancelStatus" style="font-size:0.78rem;margin-top:8px;"></div>
+      </div>
+
+      <!-- PERMISOS Y AUTORIZACIONES -->
+      <div class="sec-card">
+        <h3>📋 Permisos y Autorizaciones</h3>
+        <p style="font-size:0.78rem;color:var(--texto-suave);margin-bottom:12px;line-height:1.5;">
+          Sube los PDF de permisos (OTO, SENASA, MTC, DIGESA, etc.) con texto seleccionable. Se extrae el texto y se guarda etiquetado por entidad — quedan disponibles en todo análisis futuro sin volver a subirlos.
+        </p>
+        <div class="drop-zone" id="dropPermiso" style="padding:12px;">
+          <span class="dz-icon" style="font-size:1.2rem;">📋</span>
+          <strong style="font-size:0.76rem;">Arrastra o selecciona PDFs de permisos</strong>
+          <small>Texto seleccionable, no escaneados</small>
+          <input type="file" id="permisoInput" multiple accept=".pdf"/>
+        </div>
+        <div id="permisoPending"></div>
+      </div>
+
+      <!-- BASE NORMATIVA GUARDADA -->
+      <div class="sec-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <h3 style="margin:0;">📚 Base Normativa Guardada</h3>
+          <button onclick="loadAdminNormativa()" style="background:none;border:none;color:var(--azul);font-size:0.72rem;cursor:pointer;">↻ Actualizar</button>
+        </div>
+        <div id="adminNormList"><div class="hist-empty">Cargando...</div></div>
+      </div>
+
+    </div>
+
   </div><!-- /panel-right -->
 </div><!-- /layout -->
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 // =============================================
 // CONFIG SUPABASE
 // =============================================
@@ -607,6 +657,220 @@ function renderNormList(){
 }
 
 function removeNorm(i){ normDocs.splice(i,1); renderNormList(); }
+
+// =============================================
+// PANEL DE ADMINISTRACIÓN — PERMISOS (PDF texto seleccionable)
+// =============================================
+let pendingPermisos = []; // {name, texto, entidad, file}
+
+const dPermiso = document.getElementById('dropPermiso');
+const piInput = document.getElementById('permisoInput');
+if(dPermiso){
+  dPermiso.addEventListener('click', ()=>piInput.click());
+  dPermiso.addEventListener('dragover', e=>{e.preventDefault();dPermiso.style.borderColor='var(--azul)';});
+  dPermiso.addEventListener('dragleave', ()=>dPermiso.style.borderColor='');
+  dPermiso.addEventListener('drop', e=>{e.preventDefault();dPermiso.style.borderColor='';addPermisoPDFs([...e.dataTransfer.files]);});
+  piInput.addEventListener('change', ()=>{addPermisoPDFs([...piInput.files]);piInput.value='';});
+}
+
+async function extraerTextoPDF(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  let texto = '';
+  for(let p=1; p<=pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    texto += content.items.map(it=>it.str).join(' ') + '\n';
+  }
+  return texto.trim();
+}
+
+function detectEntidad(name, texto){
+  const t = (name+' '+texto.slice(0,2000)).toLowerCase();
+  if(t.includes('senasa')) return 'SENASA';
+  if(t.includes('digesa')) return 'DIGESA';
+  if(t.includes('mtc')) return 'MTC';
+  if(t.includes('oto')) return 'OTO';
+  if(t.includes('digemid')) return 'DIGEMID';
+  if(t.includes('sucamec')) return 'SUCAMEC';
+  return '';
+}
+
+async function addPermisoPDFs(arr){
+  for(const f of arr.filter(f=>f.type==='application/pdf')){
+    if(pendingPermisos.find(x=>x.name===f.name)) continue;
+    let texto = '';
+    try{ texto = await extraerTextoPDF(f); }
+    catch(e){ texto=''; console.error('Error extrayendo texto de', f.name, e); }
+    const entidad = detectEntidad(f.name, texto);
+    pendingPermisos.push({name:f.name, texto, entidad, file:f});
+  }
+  renderPermisoPending();
+}
+
+function renderPermisoPending(){
+  const box = document.getElementById('permisoPending');
+  if(!pendingPermisos.length){ box.innerHTML=''; return; }
+  box.innerHTML = pendingPermisos.map((p,i)=>`
+    <div class="norm-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="ni-name">${p.name}</span>
+        <button class="rm-btn" onclick="pendingPermisos.splice(${i},1);renderPermisoPending();">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <label style="font-size:0.68rem;color:var(--texto-suave);">Entidad:</label>
+        <select class="acta-inp" style="flex:1;padding:4px;" onchange="pendingPermisos[${i}].entidad=this.value">
+          <option value="" ${!p.entidad?'selected':''}>— Seleccionar —</option>
+          ${['OTO','SENASA','MTC','DIGESA','DIGEMID','SUCAMEC','OTRO'].map(e=>`<option value="${e}" ${p.entidad===e?'selected':''}>${e}</option>`).join('')}
+        </select>
+      </div>
+      ${p.texto ? `<small style="color:var(--verde);">✓ Texto extraído (${p.texto.length.toLocaleString()} caracteres)</small>` : `<small style="color:var(--rojo);">⚠ No se pudo extraer texto — ¿es un PDF escaneado?</small>`}
+    </div>
+  `).join('') + `<button class="btn-main" style="margin-top:8px;" onclick="guardarPermisos()">💾 Guardar ${pendingPermisos.length} permiso(s) en Supabase</button>`;
+}
+
+async function guardarPermisos(){
+  const validos = pendingPermisos.filter(p=>p.texto && p.entidad);
+  if(!validos.length){ alert('Cada permiso necesita texto extraído y una entidad seleccionada.'); return; }
+  for(const p of validos){
+    await sbFetch('base_normativa', 'POST', {
+      tipo: 'permiso',
+      entidad: p.entidad,
+      nombre_documento: p.name,
+      contenido: p.texto,
+      descripcion: `Permiso/autorización de ${p.entidad}: ${p.name}`
+    });
+  }
+  pendingPermisos = pendingPermisos.filter(p=>!(p.texto && p.entidad));
+  renderPermisoPending();
+  loadAdminNormativa();
+  alert(`${validos.length} permiso(s) guardado(s) correctamente.`);
+}
+
+// =============================================
+// PANEL DE ADMINISTRACIÓN — ARANCEL DE ADUANAS (Excel → Supabase)
+// =============================================
+async function refreshArancelStats(){
+  const el = document.getElementById('arancelStats');
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/base_normativa?tipo=eq.arancel&select=id`, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'count=exact'}
+    });
+    const count = r.headers.get('content-range')?.split('/')[1] || '0';
+    el.innerHTML = count>0
+      ? `✅ Arancel ya cargado: <strong>${count}</strong> partidas indexadas en Supabase.`
+      : `⚠️ Arancel aún no cargado. Sube el Excel de SUNAT para indexarlo.`;
+  }catch(e){ el.textContent = 'No se pudo verificar el estado del arancel.'; }
+}
+
+// Mapeo flexible de encabezados — ajusta estos alias si tu Excel usa otros nombres de columna
+const ARANCEL_ALIASES = {
+  subpartida: ['subpartida nacional','subpartida','partida arancelaria','codigo','código'],
+  descripcion: ['descripcion','descripción','glosa'],
+  unidad: ['unidad de medida','unidad','u.m.'],
+  advalorem: ['ad valorem','ad/valorem','arancel %','derecho ad valorem']
+};
+
+function matchColumn(headers, aliases){
+  const norm = h => h.toString().toLowerCase().trim();
+  for(const h of headers){ if(aliases.includes(norm(h))) return h; }
+  for(const h of headers){ if(aliases.some(a=>norm(h).includes(a))) return h; }
+  return null;
+}
+
+async function importarArancel(){
+  const inp = document.getElementById('arancelInput');
+  const statusEl = document.getElementById('arancelStatus');
+  const progWrap = document.getElementById('arancelProgWrap');
+  const progBar = document.getElementById('arancelProgBar');
+  const progLabel = document.getElementById('arancelProgLabel');
+  if(!inp.files.length){ alert('Selecciona primero el archivo del arancel.'); return; }
+
+  const file = inp.files[0];
+  statusEl.textContent = 'Leyendo archivo...';
+  progWrap.style.display='block';
+
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+
+  if(!rows.length){ statusEl.textContent='El archivo está vacío o no se pudo leer.'; return; }
+
+  const headers = Object.keys(rows[0]);
+  const colSub = matchColumn(headers, ARANCEL_ALIASES.subpartida);
+  const colDesc = matchColumn(headers, ARANCEL_ALIASES.descripcion);
+  const colUnidad = matchColumn(headers, ARANCEL_ALIASES.unidad);
+  const colAdval = matchColumn(headers, ARANCEL_ALIASES.advalorem);
+
+  if(!colSub || !colDesc){
+    statusEl.innerHTML = `⚠️ No pude identificar las columnas de subpartida/descripción automáticamente.<br>Columnas encontradas: <code>${headers.join(', ')}</code><br>Avísame cuáles son las correctas y ajusto el mapeo.`;
+    progWrap.style.display='none';
+    return;
+  }
+
+  statusEl.textContent = `Columnas detectadas → Subpartida: "${colSub}" · Descripción: "${colDesc}"${colUnidad?` · Unidad: "${colUnidad}"`:''}${colAdval?` · Ad Valorem: "${colAdval}"`:''}`;
+
+  const registros = rows.map(row=>{
+    const subRaw = String(row[colSub]||'').trim();
+    if(!subRaw) return null;
+    const capitulo = parseInt(subRaw.substring(0,2), 10) || null;
+    return {
+      tipo: 'arancel',
+      capitulo,
+      partida: subRaw.substring(0,4),
+      subpartida: subRaw,
+      descripcion: String(row[colDesc]||'').trim(),
+      metadata: {
+        unidad: colUnidad ? row[colUnidad] : null,
+        ad_valorem: colAdval ? row[colAdval] : null
+      }
+    };
+  }).filter(Boolean);
+
+  const CHUNK = 500;
+  let insertados = 0;
+  for(let i=0; i<registros.length; i+=CHUNK){
+    const lote = registros.slice(i, i+CHUNK);
+    try{
+      await sbFetch('base_normativa', 'POST', lote);
+      insertados += lote.length;
+    }catch(e){
+      console.error('Error insertando lote', i, e);
+    }
+    const pct = Math.round((insertados/registros.length)*100);
+    progBar.style.width = pct+'%';
+    progLabel.textContent = `${insertados} / ${registros.length} partidas insertadas...`;
+  }
+
+  statusEl.innerHTML = `✅ Listo. <strong>${insertados}</strong> partidas insertadas en Supabase.`;
+  progWrap.style.display='none';
+  refreshArancelStats();
+}
+
+// =============================================
+// PANEL DE ADMINISTRACIÓN — LISTADO / BORRADO
+// =============================================
+async function loadAdminNormativa(){
+  const box = document.getElementById('adminNormList');
+  box.innerHTML = '<div class="hist-empty">Cargando...</div>';
+  try{
+    const permisos = await sbFetch('base_normativa?tipo=eq.permiso&select=id,entidad,nombre_documento,created_at&order=created_at.desc');
+    if(!permisos.length){ box.innerHTML = '<div class="hist-empty">Sin permisos guardados todavía.</div>'; return; }
+    box.innerHTML = permisos.map(p=>`
+      <div class="hist-item">
+        <div><strong>${p.entidad}</strong> — ${p.nombre_documento}</div>
+        <button class="rm-btn" onclick="borrarNormativa('${p.id}')">✕</button>
+      </div>
+    `).join('');
+  }catch(e){ box.innerHTML = '<div class="hist-empty">Error al cargar.</div>'; }
+}
+
+async function borrarNormativa(id){
+  if(!confirm('¿Eliminar este documento de la base normativa?')) return;
+  await sbFetch(`base_normativa?id=eq.${id}`, 'DELETE');
+  loadAdminNormativa();
+}
 
 // =============================================
 // ARCHIVOS EXPEDIENTE (PDFs + IMÁGENES)
@@ -837,7 +1101,9 @@ function showTab(name,btn){
   document.querySelectorAll('.tab-content').forEach(c=>{c.classList.remove('active');c.style.display='none';});
   const t=document.getElementById(`tab-${name}`);
   if(t){t.classList.add('active');t.style.display='flex';t.style.flexDirection='column';}
+  if(name==='admin' && !adminLoaded){ adminLoaded=true; loadAdminNormativa(); refreshArancelStats(); }
 }
+let adminLoaded=false;
 
 // =============================================
 // CORREO
