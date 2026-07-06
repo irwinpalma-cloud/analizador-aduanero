@@ -362,7 +362,7 @@ textarea.inst::placeholder{color:#aaa;}
           </div>
         </div>
         <div class="chat-img-preview" id="chatImgPreview"></div>
-        <p class="chat-hint">💡 Puedes adjuntar fotos de mercancía, etiquetas o sellos con el botón 📷</p>
+        <p class="chat-hint">💡 Puedes adjuntar fotos de mercancía, etiquetas o sellos con 📷, o documentos PDF nuevos con ＋ PDF</p>
         <div class="chat-input-area">
           <button class="chat-add-btn" title="Agregar PDF" onclick="document.getElementById('addFileInput').click()">＋ PDF</button>
           <button class="chat-add-btn" title="Agregar foto" onclick="document.getElementById('chatImgInput').click()">📷 Foto</button>
@@ -942,16 +942,26 @@ function addFiles(arr){
   renderFiles();
 }
 
-function addMoreFiles(inp){
-  const added=[];
-  [...inp.files].filter(f=>f.type==='application/pdf').forEach(f=>{
-    if(files.length<15&&!files.find(x=>x.file.name===f.name)){files.push({file:f,nuevo:true,isImg:false});added.push(f.name);}
-  });
-  inp.value='';renderFiles();
-  if(added.length>0){
-    addMsg('user',`Agregué ${added.length} archivo(s): ${added.join(', ')}. Por favor complementa el análisis.`);
-    sendWithCtx(`Se agregaron archivos adicionales: ${added.join(', ')}. Complementa el análisis anterior.`);
+async function addMoreFiles(inp){
+  const nuevos=[...inp.files].filter(f=>f.type==='application/pdf' && !files.find(x=>x.file.name===f.name));
+  inp.value='';
+  if(!nuevos.length) return;
+
+  const contentBlocks=[];
+  const nombres=[];
+  for(const f of nuevos){
+    if(files.length<15) files.push({file:f,nuevo:true,isImg:false});
+    nombres.push(f.name);
+    const b64=await toB64(f);
+    contentBlocks.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64},title:f.name});
   }
+  renderFiles();
+  contentBlocks.push({type:'text',text:`Adjunto ${nombres.length} documento(s) nuevo(s) al chat: ${nombres.join(', ')}. Léelos y dime si encuentras algo relevante para este expediente — discrepancias, datos faltantes, alertas que deba tener en cuenta.`});
+
+  addMsg('user',`📄 Adjunté ${nombres.length} documento(s): ${nombres.join(', ')}`);
+  chatHistory.push({role:'user',content:contentBlocks});
+  document.getElementById('sendBtn').disabled=true;addTyping();
+  await sendWithCtx(null);
 }
 
 function tipoDoc(n){
