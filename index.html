@@ -862,12 +862,21 @@ async function importarSanciones(){
     };
   }).filter(Boolean);
 
-  statusEl.textContent = `Columnas detectadas → Fuente: "${colFuente}" · Código: "${colCodigo}" · Supuesto: "${colSupuesto}". Subiendo con actualización automática...`;
+  // Deduplicar por la misma clave que usa el upsert (fuente+codigo+infractor).
+  // Si el Excel trae dos filas idénticas apuntando al mismo registro, Postgres
+  // rechaza el lote entero porque no puede actualizar la misma fila dos veces
+  // en un solo comando — nos quedamos con la última ocurrencia de cada clave.
+  const mapaUnico = new Map();
+  registros.forEach(r => mapaUnico.set(`${r.fuente}|||${r.codigo_sancion}|||${r.infractor}`, r));
+  const registrosUnicos = [...mapaUnico.values()];
+  const duplicadosEncontrados = registros.length - registrosUnicos.length;
+
+  statusEl.textContent = `Columnas detectadas → Fuente: "${colFuente}" · Código: "${colCodigo}" · Supuesto: "${colSupuesto}".${duplicadosEncontrados>0?` Se encontraron ${duplicadosEncontrados} fila(s) duplicada(s) exacta(s) — se conservó una copia de cada una.`:''} Subiendo con actualización automática...`;
 
   const CHUNK = 500;
   let procesados = 0;
-  for(let i=0; i<registros.length; i+=CHUNK){
-    const lote = registros.slice(i, i+CHUNK);
+  for(let i=0; i<registrosUnicos.length; i+=CHUNK){
+    const lote = registrosUnicos.slice(i, i+CHUNK);
     try{
       const r = await fetch(`${SUPABASE_URL}/rest/v1/sanciones_aduaneras?on_conflict=fuente,codigo_sancion,infractor`, {
         method:'POST',
@@ -890,9 +899,9 @@ async function importarSanciones(){
       progWrap.style.display='none';
       return;
     }
-    const pct = Math.round((procesados/registros.length)*100);
+    const pct = Math.round((procesados/registrosUnicos.length)*100);
     progBar.style.width = pct+'%';
-    progLabel.textContent = `${procesados} / ${registros.length} sanciones procesadas...`;
+    progLabel.textContent = `${procesados} / ${registrosUnicos.length} sanciones procesadas...`;
   }
 
   statusEl.innerHTML = `✅ Listo. <strong>${procesados}</strong> sanciones insertadas/actualizadas en Supabase.`;
