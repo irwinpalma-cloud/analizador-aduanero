@@ -870,6 +870,7 @@ async function importarSanciones(){
   registros.forEach(r => mapaUnico.set(`${r.fuente}|||${r.codigo_sancion}|||${r.infractor}`, r));
   const registrosUnicos = [...mapaUnico.values()];
   const duplicadosEncontrados = registros.length - registrosUnicos.length;
+  console.log(`Sanciones: ${registros.length} filas leídas, ${registrosUnicos.length} únicas tras deduplicar (${duplicadosEncontrados} duplicado(s)).`);
 
   statusEl.textContent = `Columnas detectadas → Fuente: "${colFuente}" · Código: "${colCodigo}" · Supuesto: "${colSupuesto}".${duplicadosEncontrados>0?` Se encontraron ${duplicadosEncontrados} fila(s) duplicada(s) exacta(s) — se conservó una copia de cada una.`:''} Subiendo con actualización automática...`;
 
@@ -894,10 +895,40 @@ async function importarSanciones(){
       }
       procesados += lote.length;
     }catch(e){
-      console.error('Error insertando lote de sanciones', i, e);
-      statusEl.innerHTML = `⚠️ Se detuvo en el lote ${i}-${i+lote.length}: ${e.message}`;
-      progWrap.style.display='none';
-      return;
+      // Si el lote entero choca (por ejemplo, dos filas del mismo lote apuntan
+      // al mismo registro), no nos rendimos: lo reintentamos fila por fila.
+      // Una sola fila nunca puede chocar consigo misma, así que esto es
+      // la red de seguridad definitiva sin importar la causa exacta.
+      console.warn('Lote falló, reintentando fila por fila:', e.message);
+      statusEl.textContent = `El lote grande chocó (${e.message}) — reintentando fila por fila, puede tardar un poco más...`;
+      let fallosIndividuales = [];
+      for(const fila of lote){
+        try{
+          const r2 = await fetch(`${SUPABASE_URL}/rest/v1/sanciones_aduaneras?on_conflict=fuente,codigo_sancion,infractor`, {
+            method:'POST',
+            headers:{
+              'Content-Type':'application/json',
+              'apikey':SUPABASE_KEY,
+              'Authorization':`Bearer ${SUPABASE_KEY}`,
+              'Prefer':'resolution=merge-duplicates,return=minimal'
+            },
+            body: JSON.stringify([fila])
+          });
+          if(!r2.ok){
+            const errData2 = await r2.json().catch(()=>null);
+            fallosIndividuales.push(`${fila.codigo_sancion}/${fila.infractor}: ${errData2?.message||r2.status}`);
+          } else {
+            procesados++;
+          }
+        }catch(e2){
+          fallosIndividuales.push(`${fila.codigo_sancion}/${fila.infractor}: ${e2.message}`);
+        }
+      }
+      if(fallosIndividuales.length){
+        statusEl.innerHTML = `⚠️ ${procesados} procesadas. ${fallosIndividuales.length} fila(s) no se pudieron guardar:<br>${fallosIndividuales.join('<br>')}`;
+        progWrap.style.display='none';
+        return;
+      }
     }
     const pct = Math.round((procesados/registrosUnicos.length)*100);
     progBar.style.width = pct+'%';
