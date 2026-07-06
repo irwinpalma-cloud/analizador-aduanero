@@ -434,6 +434,22 @@ textarea.inst::placeholder{color:#aaa;}
         <div id="arancelStatus" style="font-size:0.78rem;margin-top:8px;"></div>
       </div>
 
+      <!-- SANCIONES - LEY GENERAL DE ADUANAS -->
+      <div class="sec-card">
+        <h3>⚖️ Sanciones - Ley General de Aduanas</h3>
+        <p style="font-size:0.78rem;color:var(--texto-suave);margin-bottom:12px;line-height:1.5;">
+          Sube el Excel consolidado de sanciones. Se guarda en Supabase e importar de nuevo <strong>actualiza</strong> las filas existentes (por código + infractor + fuente) en vez de duplicarlas — útil cuando cambien las tasas o montos.
+        </p>
+        <div id="sancionesStats" style="font-size:0.78rem;margin-bottom:10px;color:var(--texto-suave);">Cargando estado...</div>
+        <input type="file" id="sancionesInput" accept=".xlsx,.xls,.csv" style="margin-bottom:8px;"/>
+        <button class="btn-main" id="sancionesBtn" onclick="importarSanciones()">📥 Importar Sanciones a Supabase</button>
+        <div class="prog-wrap" id="sancionesProgWrap" style="display:none;margin-top:10px;">
+          <div class="prog-bar-bg"><div class="prog-bar" id="sancionesProgBar"></div></div>
+          <div class="prog-label" id="sancionesProgLabel">Procesando...</div>
+        </div>
+        <div id="sancionesStatus" style="font-size:0.78rem;margin-top:8px;"></div>
+      </div>
+
       <!-- PERMISOS Y AUTORIZACIONES -->
       <div class="sec-card">
         <h3>📋 Permisos y Autorizaciones</h3>
@@ -765,6 +781,123 @@ async function guardarPermisos(){
   } else {
     alert(`${ok} permiso(s) guardado(s) correctamente.`);
   }
+}
+
+// =============================================
+// PANEL DE ADMINISTRACIÓN — SANCIONES ADUANERAS (Excel → Supabase, con upsert)
+// =============================================
+async function refreshSancionesStats(){
+  const el = document.getElementById('sancionesStats');
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/sanciones_aduaneras?select=id`, {
+      headers:{'apikey':SUPABASE_KEY,'Authorization':`Bearer ${SUPABASE_KEY}`,'Prefer':'count=exact'}
+    });
+    const count = r.headers.get('content-range')?.split('/')[1] || '0';
+    el.innerHTML = count>0
+      ? `✅ Sanciones ya cargadas: <strong>${count}</strong> registradas en Supabase.`
+      : `⚠️ Sanciones aún no cargadas. Sube el Excel para indexarlas.`;
+  }catch(e){ el.textContent = 'No se pudo verificar el estado de las sanciones.'; }
+}
+
+const SANCIONES_ALIASES = {
+  fuente: ['fuente'],
+  infractor: ['infractor'],
+  relacionado: ['relacionado a','relacionado_a'],
+  codigo: ['codigo de sancion','código de sanción','codigo sancion','codigo'],
+  supuesto: ['supuesto'],
+  referencia: ['referencia'],
+  sancion: ['sancion','sanción'],
+  gravedad: ['gravedad']
+};
+
+async function importarSanciones(){
+  const inp = document.getElementById('sancionesInput');
+  const statusEl = document.getElementById('sancionesStatus');
+  const progWrap = document.getElementById('sancionesProgWrap');
+  const progBar = document.getElementById('sancionesProgBar');
+  const progLabel = document.getElementById('sancionesProgLabel');
+  if(!inp.files.length){ alert('Selecciona primero el archivo de sanciones.'); return; }
+
+  const file = inp.files[0];
+  statusEl.textContent = 'Leyendo archivo...';
+  progWrap.style.display='block';
+
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, {type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+  if(!rows.length){ statusEl.textContent='El archivo está vacío o no se pudo leer.'; progWrap.style.display='none'; return; }
+
+  const headers = Object.keys(rows[0]);
+  const colFuente = matchColumn(headers, SANCIONES_ALIASES.fuente);
+  const colInfractor = matchColumn(headers, SANCIONES_ALIASES.infractor);
+  const colRelacionado = matchColumn(headers, SANCIONES_ALIASES.relacionado);
+  const colCodigo = matchColumn(headers, SANCIONES_ALIASES.codigo);
+  const colSupuesto = matchColumn(headers, SANCIONES_ALIASES.supuesto);
+  const colReferencia = matchColumn(headers, SANCIONES_ALIASES.referencia);
+  const colSancion = matchColumn(headers, SANCIONES_ALIASES.sancion);
+  const colGravedad = matchColumn(headers, SANCIONES_ALIASES.gravedad);
+
+  if(!colFuente || !colCodigo || !colSupuesto){
+    statusEl.innerHTML = `⚠️ No pude identificar las columnas clave (fuente/código/supuesto).<br>Columnas encontradas: <code>${headers.join(', ')}</code>`;
+    progWrap.style.display='none';
+    return;
+  }
+
+  // OJO: infractor va como '' en vez de null. Con NULL, Postgres nunca detecta
+  // conflicto entre dos filas nulas (cada NULL es único), así que las sanciones
+  // de tipo COMISO (sin infractor) se duplicarían en cada reimportación.
+  const registros = rows.map(row=>{
+    const codigo = String(row[colCodigo]||'').trim();
+    if(!codigo) return null;
+    return {
+      fuente: String(row[colFuente]||'').trim(),
+      infractor: String(row[colInfractor]||'').trim(),
+      relacionado_a: colRelacionado ? (String(row[colRelacionado]||'').trim() || null) : null,
+      codigo_sancion: codigo,
+      supuesto: String(row[colSupuesto]||'').trim(),
+      referencia: colReferencia ? String(row[colReferencia]||'').trim() : null,
+      sancion: colSancion ? String(row[colSancion]||'').trim() : null,
+      gravedad: colGravedad ? String(row[colGravedad]||'').trim() : null
+    };
+  }).filter(Boolean);
+
+  statusEl.textContent = `Columnas detectadas → Fuente: "${colFuente}" · Código: "${colCodigo}" · Supuesto: "${colSupuesto}". Subiendo con actualización automática...`;
+
+  const CHUNK = 500;
+  let procesados = 0;
+  for(let i=0; i<registros.length; i+=CHUNK){
+    const lote = registros.slice(i, i+CHUNK);
+    try{
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/sanciones_aduaneras?on_conflict=fuente,codigo_sancion,infractor`, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey':SUPABASE_KEY,
+          'Authorization':`Bearer ${SUPABASE_KEY}`,
+          'Prefer':'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify(lote)
+      });
+      if(!r.ok){
+        const errData = await r.json().catch(()=>null);
+        throw new Error(errData?.message || errData?.hint || `Error ${r.status}`);
+      }
+      procesados += lote.length;
+    }catch(e){
+      console.error('Error insertando lote de sanciones', i, e);
+      statusEl.innerHTML = `⚠️ Se detuvo en el lote ${i}-${i+lote.length}: ${e.message}`;
+      progWrap.style.display='none';
+      return;
+    }
+    const pct = Math.round((procesados/registros.length)*100);
+    progBar.style.width = pct+'%';
+    progLabel.textContent = `${procesados} / ${registros.length} sanciones procesadas...`;
+  }
+
+  statusEl.innerHTML = `✅ Listo. <strong>${procesados}</strong> sanciones insertadas/actualizadas en Supabase.`;
+  progWrap.style.display='none';
+  refreshSancionesStats();
 }
 
 // =============================================
@@ -1171,7 +1304,7 @@ function showTab(name,btn){
   document.querySelectorAll('.tab-content').forEach(c=>{c.classList.remove('active');c.style.display='none';});
   const t=document.getElementById(`tab-${name}`);
   if(t){t.classList.add('active');t.style.display='flex';t.style.flexDirection='column';}
-  if(name==='admin' && !adminLoaded){ adminLoaded=true; loadAdminNormativa(); refreshArancelStats(); }
+  if(name==='admin' && !adminLoaded){ adminLoaded=true; loadAdminNormativa(); refreshArancelStats(); refreshSancionesStats(); }
 }
 let adminLoaded=false;
 
