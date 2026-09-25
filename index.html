@@ -331,9 +331,16 @@ textarea.inst::placeholder{color:#aaa;}
         <input class="acta-inp" id="nActaInmov" placeholder="N° Acta Inmovilización" oninput="generarCorreo()"/>
         <input class="acta-inp" id="nActaLev" placeholder="N° Acta Levantamiento" oninput="generarCorreo()"/>
       </div>
-      <div id="cpo-incaut" style="display:none;" class="acta-row">
-        <input class="acta-inp" id="nActaIncaut" placeholder="N° Acta Incautación" oninput="generarCorreo()"/>
-      </div>
+      <div id="cpo-parcial-tipo" style="display:none;" class="acta-row">
+  <select class="acta-inp" id="tipoMedidaParcial" onchange="cambiarTipoMedidaParcial()">
+    <option value="incautacion">INCAUTACIÓN</option>
+    <option value="inmovilizacion">INMOVILIZACIÓN</option>
+  </select>
+</div>
+
+<div id="cpo-incaut" style="display:none;" class="acta-row">
+  <input class="acta-inp" id="nActaIncaut" placeholder="N° Acta Incautación" oninput="generarCorreo()"/>
+</div>
       <div id="cpo-canal" style="display:none;" class="acta-row">
         <select class="acta-inp" id="canalDAM" onchange="generarCorreo()">
           <option>CANAL VERDE</option><option>CANAL NARANJA</option><option>CANAL ROJO</option>
@@ -1355,16 +1362,43 @@ function setEmailType(type,btn){
   emailType=type;
   document.querySelectorAll('.etbtn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  ['cpo-inmov','cpo-levante','cpo-incaut','cpo-canal'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+
+  ['cpo-inmov','cpo-levante','cpo-incaut','cpo-canal','cpo-parcial-tipo'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display='none';
+  });
+
   if(type==='levante_inmov'){
+  document.getElementById('cpo-inmov').style.display='flex';
+} else if(type==='desbloqueo_parcial'){
+  document.getElementById('cpo-parcial-tipo').style.display='flex';
+  document.getElementById('cpo-canal').style.display='flex';
+
+  if(document.getElementById('tipoMedidaParcial')?.value==='inmovilizacion'){
     document.getElementById('cpo-inmov').style.display='flex';
-  } else if(type==='desbloqueo_parcial'){
+  }else{
     document.getElementById('cpo-incaut').style.display='flex';
-    document.getElementById('cpo-canal').style.display='flex';
   }
-  generarCorreo();
 }
 
+  generarCorreo();
+}
+function cambiarTipoMedidaParcial(){
+  const tipo=document.getElementById('tipoMedidaParcial')?.value;
+
+  const cpoInmov=document.getElementById('cpo-inmov');
+  const cpoIncaut=document.getElementById('cpo-incaut');
+
+  if(tipo==='inmovilizacion'){
+    if(cpoInmov)cpoInmov.style.display='flex';
+    if(cpoIncaut)cpoIncaut.style.display='none';
+  }else{
+    if(cpoInmov)cpoInmov.style.display='none';
+    if(cpoIncaut)cpoIncaut.style.display='flex';
+  }
+
+  generarCorreo();
+}
 function getExp(){
   if(!analysisResult)return{};
   return{
@@ -1382,7 +1416,11 @@ function generarCorreo(){
   const nInmov=document.getElementById('nActaInmov')?.value?.trim()||'[N° ACTA INMOVILIZACIÓN]';
   const nLev=document.getElementById('nActaLev')?.value?.trim()||'[N° ACTA LEVANTAMIENTO]';
   const nInc=document.getElementById('nActaIncaut')?.value?.trim()||'[N° ACTA INCAUTACIÓN]';
+  const tipoMedidaParcial=document.getElementById('tipoMedidaParcial')?.value||'incautacion';
   const canal=d.canal;
+  const esInmovParcial = emailType==='desbloqueo_parcial' && tipoMedidaParcial==='inmovilizacion';
+  const tipoMedidaTexto = esInmovParcial ? 'Inmovilización' : 'Incautación';
+  const nActaParcial = esInmovParcial ? nInmov : nInc;
   let asunto='',cuerpo='';
   if(emailType==='desbloqueo_total'){
     asunto=`DESBLOQUEO TOTAL CONCLUSION DE ACE N° ${d.ace} DAM: ${d.dam}`;
